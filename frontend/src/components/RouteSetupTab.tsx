@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import {
   MapPin,
@@ -8,7 +8,9 @@ import {
   RotateCw,
   FileText,
   ArrowRight,
-  SlidersHorizontal
+  SlidersHorizontal,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import type { RideDetails } from '../types';
 import { previewRoute, updateRideRoute, fetchLocationSuggestions } from '../api';
@@ -50,6 +52,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
   const startSearchTimer = useRef<any>(null);
   const destSearchTimer = useRef<any>(null);
+  const routeDebounceTimer = useRef<any>(null);
   const startDropdownRef = useRef<HTMLDivElement>(null);
   const destDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -59,9 +62,23 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const [updatingRide, setUpdatingRide] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Leaflet Map Reference
+  // Leaflet Map References
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const routeLayersRef = useRef<L.FeatureGroup | null>(null);
+
+  // Track if user has manually edited inputs
+  const hasUserEditedRef = useRef(false);
+
+  // Synchronize with active ride if ride changes and user hasn't edited
+  useEffect(() => {
+    if (ride && !hasUserEditedRef.current) {
+      if (ride.start_location) setStartLocation(ride.start_location);
+      if (ride.destination) setDestination(ride.destination);
+      if (ride.ride_date) setRideDate(ride.ride_date);
+      if (ride.start_time) setStartTime(ride.start_time);
+    }
+  }, [ride]);
 
   // Close suggestion dropdowns when clicking outside
   useEffect(() => {
@@ -77,35 +94,40 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Initialize or update Map with Start and Destination Pointers
+  // Initialize Leaflet Map once
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
-        attributionControl: false, // Clean map without external mentions
+        attributionControl: false,
       }).setView([13.0, 76.5], 8);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '',
       }).addTo(map);
 
+      // Create a dedicated feature group for route polyline and all markers
+      routeLayersRef.current = L.featureGroup().addTo(map);
       mapInstanceRef.current = map;
     }
+  }, []);
 
+  // Update map polyline, pointers and checkpoints whenever routeData or ride changes
+  useEffect(() => {
     const map = mapInstanceRef.current;
+    const layerGroup = routeLayersRef.current;
+    if (!map || !layerGroup) return;
 
-    // Remove existing layers
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Polyline || layer instanceof L.Marker) {
-        map.removeLayer(layer);
-      }
-    });
+    // Clear all existing markers and lines
+    layerGroup.clearLayers();
 
     const activePolyline = routeData?.polyline || ride?.polyline;
     const activeStops = routeData?.timeline || ride?.stops || [];
 
-    // Helper: Create professional teardrop map pin for Start (A) and Destination (B)
+    if (!activePolyline || activePolyline.length === 0) return;
+
+    // Helper: Create custom teardrop map pin for Start (A) and Destination (B)
     const createLocationPin = (label: string, isStart: boolean, color: string) => {
       return L.divIcon({
         className: 'custom-location-pin',
@@ -146,51 +168,48 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       });
     };
 
-    // Draw Route Polyline
-    if (activePolyline && activePolyline.length > 0) {
-      const polyline = L.polyline(activePolyline, {
-        color: '#0284c7',
-        weight: 4.5,
-        opacity: 0.9,
-        lineJoin: 'round',
-      }).addTo(map);
+    // 1. Draw highway polyline
+    const polyline = L.polyline(activePolyline, {
+      color: '#0284c7',
+      weight: 5,
+      opacity: 0.92,
+      lineJoin: 'round',
+    });
+    layerGroup.addLayer(polyline);
 
-      map.fitBounds(polyline.getBounds(), { padding: [35, 35] });
-
-      // Add Start Marker (Point A)
-      const startCoord = activePolyline[0];
-      const startIcon = createLocationPin('A', true, '#10b981');
-      const startPopup = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
-          <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
-            Start Location (Point A)
-          </div>
-          <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${startLocation}</h4>
-          <p style="margin: 0; color: #475569; font-size: 11px;">Departure: <strong>${startTime}</strong></p>
+    // 2. Add Start Pointer (Point A)
+    const startCoord = activePolyline[0];
+    const startIcon = createLocationPin('A', true, '#10b981');
+    const startPopup = `
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
+        <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+          Start Location (Point A)
         </div>
-      `;
-      L.marker([startCoord[0], startCoord[1]], { icon: startIcon, zIndexOffset: 1000 })
-        .addTo(map)
-        .bindPopup(startPopup);
+        <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${startLocation}</h4>
+        <p style="margin: 0; color: #475569; font-size: 11px;">Departure: <strong>${startTime}</strong></p>
+      </div>
+    `;
+    const startMarker = L.marker([startCoord[0], startCoord[1]], { icon: startIcon, zIndexOffset: 1000 })
+      .bindPopup(startPopup);
+    layerGroup.addLayer(startMarker);
 
-      // Add Destination Marker (Point B)
-      const endCoord = activePolyline[activePolyline.length - 1];
-      const endIcon = createLocationPin('B', false, '#e11d48');
-      const endPopup = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
-          <div style="display: inline-block; background: #fff1f2; color: #e11d48; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
-            Destination Goal (Point B)
-          </div>
-          <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${destination}</h4>
-          <p style="margin: 0; color: #475569; font-size: 11px;">Planned Arrival Zone</p>
+    // 3. Add Destination Pointer (Point B)
+    const endCoord = activePolyline[activePolyline.length - 1];
+    const endIcon = createLocationPin('B', false, '#e11d48');
+    const endPopup = `
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
+        <div style="display: inline-block; background: #fff1f2; color: #e11d48; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+          Destination Goal (Point B)
         </div>
-      `;
-      L.marker([endCoord[0], endCoord[1]], { icon: endIcon, zIndexOffset: 1000 })
-        .addTo(map)
-        .bindPopup(endPopup);
-    }
+        <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${destination}</h4>
+        <p style="margin: 0; color: #475569; font-size: 11px;">Target Arrival Zone</p>
+      </div>
+    `;
+    const endMarker = L.marker([endCoord[0], endCoord[1]], { icon: endIcon, zIndexOffset: 1000 })
+      .bindPopup(endPopup);
+    layerGroup.addLayer(endMarker);
 
-    // Add Intermediate Checkpoint Stops
+    // 4. Add intermediate checkpoint markers
     activeStops.forEach((stop: any, idx: number) => {
       const icon = createCheckpointIcon(stop.stop_type || stop.type, idx + 1);
       const name = stop.name || 'Checkpoint';
@@ -210,32 +229,34 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         </div>
       `;
 
-      L.marker([stop.lat, stop.lng], { icon })
-        .addTo(map)
-        .bindPopup(popup);
+      const stopMarker = L.marker([stop.lat, stop.lng], { icon }).bindPopup(popup);
+      layerGroup.addLayer(stopMarker);
     });
+
+    // Fit map bounds to view the full journey
+    try {
+      map.fitBounds(layerGroup.getBounds(), { padding: [45, 45], maxZoom: 13 });
+      map.invalidateSize();
+    } catch (e) {
+      console.warn('Map fitBounds error:', e);
+    }
 
   }, [routeData, ride, startLocation, destination, startTime]);
 
-  // Initial preview calculation
-  useEffect(() => {
-    if (!ride && !routeData) {
-      handleCalculateRouteWith(startLocation, destination);
-    }
-  }, []);
-
-  const handleCalculateRouteWith = async (start: string, dest: string) => {
+  // Core route calculation function
+  const handleCalculateRouteWith = useCallback(async (start: string, dest: string) => {
     if (!start.trim() || !dest.trim()) return;
     try {
       setCalculating(true);
-      setStatusMessage(null);
+      setStatusMessage('Calculating real-time route...');
       const data = await previewRoute({
-        start_location: start,
-        destination: dest,
+        start_location: start.trim(),
+        destination: dest.trim(),
         start_time: startTime,
         target_date: rideDate,
         smallest_tank_range_km: 301.4,
       });
+
       setRouteData(data);
       setStatusMessage(`Route calculated: ${data.total_distance_km} km (${Math.floor(data.estimated_duration_minutes / 60)}h ${data.estimated_duration_minutes % 60}m)`);
     } catch (err: any) {
@@ -243,17 +264,36 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     } finally {
       setCalculating(false);
     }
-  };
+  }, [startTime, rideDate]);
 
-  const handleCalculateRoute = () => {
+  // Initial calculation on component mount
+  useEffect(() => {
     handleCalculateRouteWith(startLocation, destination);
-  };
+  }, []);
+
+  // Real-time automatic route recalculation when startLocation or destination changes
+  useEffect(() => {
+    if (!startLocation.trim() || !destination.trim()) return;
+    if (startLocation.trim().length < 2 || destination.trim().length < 2) return;
+
+    if (routeDebounceTimer.current) {
+      clearTimeout(routeDebounceTimer.current);
+    }
+
+    routeDebounceTimer.current = setTimeout(() => {
+      handleCalculateRouteWith(startLocation, destination);
+    }, 600);
+
+    return () => {
+      if (routeDebounceTimer.current) clearTimeout(routeDebounceTimer.current);
+    };
+  }, [startLocation, destination, handleCalculateRouteWith]);
 
   const handleUpdateActiveRide = async () => {
     if (!ride) return;
     try {
       setUpdatingRide(true);
-      setStatusMessage(null);
+      setStatusMessage('Updating active ride plan with new route and stops...');
       await updateRideRoute(ride.id, {
         start_location: startLocation,
         destination: destination,
@@ -261,7 +301,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         start_time: startTime,
       });
       onRefreshRide();
-      setStatusMessage('Active ride updated with newly calculated route and stops.');
+      setStatusMessage('Active ride updated and synchronized.');
     } catch (err: any) {
       setStatusMessage(`Failed to update ride: ${err.message}`);
     } finally {
@@ -269,10 +309,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     }
   };
 
-  // Search input handlers with debounced dropdown suggestions
+  // Autocomplete suggestion fetchers
   const handleStartChange = (val: string) => {
+    hasUserEditedRef.current = true;
     setStartLocation(val);
     setShowStartDropdown(true);
+
     if (startSearchTimer.current) clearTimeout(startSearchTimer.current);
     startSearchTimer.current = setTimeout(async () => {
       if (val.trim().length >= 1) {
@@ -285,14 +327,17 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   };
 
   const selectStartLocation = (loc: { name: string; description: string }) => {
+    hasUserEditedRef.current = true;
     setStartLocation(loc.name);
     setShowStartDropdown(false);
-    setTimeout(() => handleCalculateRouteWith(loc.name, destination), 50);
+    handleCalculateRouteWith(loc.name, destination);
   };
 
   const handleDestChange = (val: string) => {
+    hasUserEditedRef.current = true;
     setDestination(val);
     setShowDestDropdown(true);
+
     if (destSearchTimer.current) clearTimeout(destSearchTimer.current);
     destSearchTimer.current = setTimeout(async () => {
       if (val.trim().length >= 1) {
@@ -305,13 +350,14 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   };
 
   const selectDestLocation = (loc: { name: string; description: string }) => {
+    hasUserEditedRef.current = true;
     setDestination(loc.name);
     setShowDestDropdown(false);
-    setTimeout(() => handleCalculateRouteWith(startLocation, loc.name), 50);
+    handleCalculateRouteWith(startLocation, loc.name);
   };
 
-  const displayDistance = routeData?.total_distance_km || ride?.total_distance_km || 221.5;
-  const displayDuration = routeData?.estimated_duration_minutes || ride?.duration_minutes || 235;
+  const displayDistance = routeData?.total_distance_km || ride?.total_distance_km || 0;
+  const displayDuration = routeData?.estimated_duration_minutes || ride?.duration_minutes || 0;
   const displayWeather = routeData?.weather?.overall_verdict || ride?.weather_verdict || 'GO';
   const displayStops = routeData?.timeline || ride?.stops || [];
   const routingEngine = routeData?.routing_provider || 'Live Highway Engine';
@@ -326,7 +372,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
                 Route &amp; Destination Setup
               </span>
-              <span className="text-xs text-slate-400">Live Highway Routing &amp; Fuel Safety</span>
+              <span className="text-xs text-slate-400">Real-Time Highway Routing &amp; Fuel Safety</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white mt-1">Group Ride Highway Planner</h1>
           </div>
@@ -369,6 +415,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 type="text"
                 value={startLocation}
                 onChange={(e) => handleStartChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setShowStartDropdown(false);
+                    handleCalculateRouteWith(startLocation, destination);
+                  }
+                }}
                 onFocus={() => {
                   if (startSuggestions.length > 0) setShowStartDropdown(true);
                   else if (startLocation.trim().length >= 1) handleStartChange(startLocation);
@@ -432,6 +484,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 type="text"
                 value={destination}
                 onChange={(e) => handleDestChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setShowDestDropdown(false);
+                    handleCalculateRouteWith(startLocation, destination);
+                  }
+                }}
                 onFocus={() => {
                   if (destSuggestions.length > 0) setShowDestDropdown(true);
                   else if (destination.trim().length >= 1) handleDestChange(destination);
@@ -508,8 +566,13 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
         {/* Actions Row */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-          <div className="text-xs text-slate-400">
-            {statusMessage ? (
+          <div className="text-xs text-slate-400 flex items-center gap-2">
+            {calculating ? (
+              <span className="text-sky-400 font-medium flex items-center gap-1.5">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                <span>Calculating real-time route...</span>
+              </span>
+            ) : statusMessage ? (
               <span className="text-slate-300 font-medium">{statusMessage}</span>
             ) : (
               <span>Routing Engine: <strong className="text-sky-400">{routingEngine}</strong></span>
@@ -518,21 +581,21 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleCalculateRoute}
+              onClick={() => handleCalculateRouteWith(startLocation, destination)}
               disabled={calculating}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition"
             >
               <RotateCw className={`w-3.5 h-3.5 ${calculating ? 'animate-spin' : ''}`} />
-              <span>{calculating ? 'Calculating...' : 'Recalculate Route'}</span>
+              <span>{calculating ? 'Updating Map...' : 'Recalculate Route'}</span>
             </button>
 
             {ride ? (
               <button
                 onClick={handleUpdateActiveRide}
-                disabled={updatingRide}
-                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                disabled={updatingRide || calculating}
+                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
               >
-                <span>{updatingRide ? 'Updating Plan...' : 'Apply to Active Ride'}</span>
+                <span>{updatingRide ? 'Saving Plan...' : 'Apply to Active Ride'}</span>
               </button>
             ) : (
               <button
@@ -575,7 +638,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       {/* Map and Timeline Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Leaflet Map Column */}
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[540px]">
+        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[540px] relative">
           <div className="flex items-center justify-between mb-2.5 px-1">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Highway Route Map</span>
@@ -593,7 +656,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             </div>
             <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">{destination}</span>
           </div>
-          <div ref={mapContainerRef} className="flex-1 w-full rounded-xl overflow-hidden shadow-inner border border-slate-800" />
+
+          {/* Interactive Map */}
+          <div className="flex-1 w-full rounded-xl overflow-hidden shadow-inner border border-slate-800 relative">
+            <div ref={mapContainerRef} className="w-full h-full" />
+
+            {/* Live calculation overlay on the map */}
+            {calculating && (
+              <div className="absolute top-3 right-3 z-[1000] bg-slate-900/90 border border-sky-500/40 text-sky-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xl backdrop-blur-sm">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                <span>Updating live route...</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Timeline Column */}

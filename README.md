@@ -34,20 +34,25 @@ Organizing a weekend motorcycle group ride is exhausting:
 
 ### 🖼️ Real App Screenshots
 
-| 1. Route Planning & Interactive Map | 2. Parsed Roster & Bottleneck Detection |
+| 1. Mission Command Center (Dashboard) | 2. Route Planning & Interactive Map |
 | :---: | :---: |
-| [![Route Map](docs/images/01_route_map.png)](docs/images/01_route_map.png) | [![Riders & Specs](docs/images/02_riders_specs.png)](docs/images/02_riders_specs.png) |
-| *Interactive Leaflet highway route, custom stop pins (Fuel ⛽, Food 🍔, Restroom 🚻, Service 🔧), and weather verdict.* | *Extracted riders, Indian motorcycle tank matching, and group safe range bottleneck calculation.* |
+| [![Command Center](docs/images/00_command_center.png)](docs/images/00_command_center.png) | [![Route Map](docs/images/01_route_map.png)](docs/images/01_route_map.png) |
+| *High-level ride telemetry, 0.8x safe range bottleneck calculation, weather status, and waypoint timeline.* | *Interactive Leaflet highway route, custom stop pins (Fuel ⛽, Food 🍔, Restroom 🚻, Service 🔧), and disambiguation candidate picker.* |
 
-| 3. Captain's Approval Gate | 4. Action Audit Log (Append-Only) |
+| 3. Parsed Roster & Bottleneck Detection | 4. Captain's Approval Gate |
 | :---: | :---: |
-| [![Approvals Gate](docs/images/03_approvals_gate.png)](docs/images/03_approvals_gate.png) | [![Action Log](docs/images/04_action_log.png)](docs/images/04_action_log.png) |
-| *No write action executes without captain sign-off (`SAVE_PLAN`, `CALENDAR_EXPORT`, `GROUP_SUMMARY`, `SETTLEMENT_LINKS`).* | *Real-time append-only log of every MCP tool invocation, inputs, outputs, timestamps, and caller.* |
+| [![Riders & Specs](docs/images/02_riders_specs.png)](docs/images/02_riders_specs.png) | [![Approvals Gate](docs/images/03_approvals_gate.png)](docs/images/03_approvals_gate.png) |
+| *Extracted riders, Indian motorcycle fleet specs matching, and limiting bike highlight.* | *No write action executes without captain sign-off (`SAVE_PLAN`, `CALENDAR_EXPORT`, `GROUP_SUMMARY`, `SETTLEMENT_LINKS`).* |
 
-| 5. Expenses & UPI Deep Links |
+| 5. Action Audit Log (Append-Only) | 6. Expenses & UPI Deep Links |
+| :---: | :---: |
+| [![Action Log](docs/images/04_action_log.png)](docs/images/04_action_log.png) | [![Expenses & UPI](docs/images/05_expenses_upi.png)](docs/images/05_expenses_upi.png) |
+| *Real-time append-only log of every MCP tool invocation, inputs, outputs, timestamps, and caller.* | *Shared expense ledger with greedy cash-flow minimization and instant `upi://pay` deep links.* |
+
+| 7. Motorcycle Cockpit HUD (Voice Mode) |
 | :---: |
-| [![Expenses & UPI](docs/images/05_expenses_upi.png)](docs/images/05_expenses_upi.png) |
-| *Shared expense ledger with greedy cash-flow minimization and instant `upi://pay` deep links.* |
+| [![Cockpit HUD](docs/images/06_cockpit_hud.png)](docs/images/06_cockpit_hud.png) |
+| *High-contrast tactile cockpit HUD with hands-free STT and multilingual TTS briefings (English, Hindi, Kannada).* |
 
 ---
 

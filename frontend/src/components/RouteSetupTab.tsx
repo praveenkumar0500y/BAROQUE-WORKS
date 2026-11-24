@@ -9,8 +9,12 @@ import {
   FileText,
   ArrowRight,
   SlidersHorizontal,
+  Fuel,
+  Utensils,
+  Wrench,
   CheckCircle2,
-  AlertCircle
+  Crosshair,
+  Sparkles
 } from 'lucide-react';
 import type { RideDetails } from '../types';
 import { previewRoute, updateRideRoute, fetchLocationSuggestions } from '../api';
@@ -50,6 +54,10 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const [showStartDropdown, setShowStartDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
 
+  // Selected stop inspection state
+  const [selectedStopIndex, setSelectedStopIndex] = useState<number | null>(null);
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'fuel' | 'food' | 'restroom' | 'repair'>('all');
+
   const startSearchTimer = useRef<any>(null);
   const destSearchTimer = useRef<any>(null);
   const routeDebounceTimer = useRef<any>(null);
@@ -66,6 +74,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const routeLayersRef = useRef<L.FeatureGroup | null>(null);
+  const stopMarkersRef = useRef<Record<number, L.Marker>>({});
 
   // Track if user has manually edited inputs
   const hasUserEditedRef = useRef(false);
@@ -121,6 +130,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
     // Clear all existing markers and lines
     layerGroup.clearLayers();
+    stopMarkersRef.current = {};
 
     const activePolyline = routeData?.polyline || ride?.polyline;
     const activeStops = routeData?.timeline || ride?.stops || [];
@@ -147,24 +157,28 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     };
 
     // Helper: Create subtle numbered circular checkpoint marker
-    const createCheckpointIcon = (type: string, order: number) => {
+    const createCheckpointIcon = (type: string, order: number, isSelected: boolean) => {
       let bg = '#334155';
-      if (type === 'fuel') bg = '#0284c7';
-      else if (type === 'food') bg = '#10b981';
-      else if (type === 'restroom') bg = '#6366f1';
-      else if (type === 'repair') bg = '#e11d48';
-      else if (type === 'checkpoint') bg = '#64748b';
+      if (type === 'fuel') bg = '#0284c7'; // Sky Blue
+      else if (type === 'food') bg = '#10b981'; // Emerald
+      else if (type === 'restroom') bg = '#6366f1'; // Indigo
+      else if (type === 'repair') bg = '#f97316'; // Amber/Orange
+      else if (type === 'checkpoint') bg = '#64748b'; // Slate
+
+      const border = isSelected ? '3px solid #38bdf8' : '2px solid #ffffff';
+      const scale = isSelected ? 'transform: scale(1.3); z-index: 9999;' : '';
+      const shadow = isSelected ? 'box-shadow: 0 0 14px rgba(56, 189, 248, 0.9);' : 'box-shadow: 0 2px 4px rgba(0,0,0,0.4);';
 
       return L.divIcon({
         className: 'subtle-checkpoint-marker',
         html: `
-          <div style="background-color: ${bg}; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 800; border: 2px solid #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">
+          <div style="background-color: ${bg}; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 800; border: ${border}; ${shadow} ${scale}">
             ${order}
           </div>
         `,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-        popupAnchor: [0, -12]
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -14]
       });
     };
 
@@ -181,11 +195,11 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     const startCoord = activePolyline[0];
     const startIcon = createLocationPin('A', true, '#10b981');
     const startPopup = `
-      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 170px;">
         <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
           Start Location (Point A)
         </div>
-        <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${startLocation}</h4>
+        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a;">${startLocation}</h4>
         <p style="margin: 0; color: #475569; font-size: 11px;">Departure: <strong>${startTime}</strong></p>
       </div>
     `;
@@ -197,11 +211,11 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     const endCoord = activePolyline[activePolyline.length - 1];
     const endIcon = createLocationPin('B', false, '#e11d48');
     const endPopup = `
-      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 170px;">
         <div style="display: inline-block; background: #fff1f2; color: #e11d48; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
           Destination Goal (Point B)
         </div>
-        <h4 style="margin: 4px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${destination}</h4>
+        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a;">${destination}</h4>
         <p style="margin: 0; color: #475569; font-size: 11px;">Target Arrival Zone</p>
       </div>
     `;
@@ -209,46 +223,67 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       .bindPopup(endPopup);
     layerGroup.addLayer(endMarker);
 
-    // 4. Add intermediate checkpoint markers
+    // 4. Add intermediate checkpoint markers and store references
     activeStops.forEach((stop: any, idx: number) => {
-      const icon = createCheckpointIcon(stop.stop_type || stop.type, idx + 1);
+      const isSelected = selectedStopIndex === idx;
+      const icon = createCheckpointIcon(stop.stop_type || stop.type, idx + 1, isSelected);
       const name = stop.name || 'Checkpoint';
       const km = stop.distance_from_start_km ?? stop.km_from_start ?? 0;
       const eta = stop.eta || '';
       const notes = stop.notes || '';
-      const stopType = stop.stop_type || stop.type || 'checkpoint';
+      const stopType = (stop.stop_type || stop.type || 'checkpoint').toUpperCase();
+      const amenities = stop.amenities || [];
+
+      const amenitiesHtml = amenities.length > 0
+        ? `<div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px;">
+            ${amenities.map((a: string) => `<span style="background: #f1f5f9; color: #334155; font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 4px; border: 1px solid #e2e8f0;">${a}</span>`).join('')}
+          </div>`
+        : '';
 
       const popup = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 3px; min-width: 150px;">
-          <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #0284c7;">
-            Stop #${idx + 1}: ${stopType}
+        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 190px; max-width: 240px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #0284c7; background: #e0f2fe; padding: 1px 5px; border-radius: 4px;">
+              Stop #${idx + 1}: ${stopType}
+            </span>
+            <span style="font-size: 10px; font-weight: 700; color: #0369a1; font-family: monospace;">${eta}</span>
           </div>
-          <h4 style="margin: 3px 0 2px 0; font-size: 12px; font-weight: 700; color: #0f172a;">${name}</h4>
-          <p style="margin: 0; color: #475569; font-size: 11px;">Leg: ${km} km from start | ETA: <strong>${eta}</strong></p>
-          ${notes ? `<p style="margin-top: 4px; font-size: 11px; color: #64748b; line-height: 1.3;">${notes}</p>` : ''}
+          <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.25;">${name}</h4>
+          <p style="margin: 0; color: #475569; font-size: 11px;">Distance: <strong>${km} km</strong> from start | ${stop.duration_minutes || 15}m stop</p>
+          ${notes ? `<p style="margin-top: 4px; font-size: 11px; color: #64748b; line-height: 1.35; border-top: 1px solid #f1f5f9; padding-top: 4px;">${notes}</p>` : ''}
+          ${amenitiesHtml}
         </div>
       `;
 
       const stopMarker = L.marker([stop.lat, stop.lng], { icon }).bindPopup(popup);
+
+      // On marker click: select stop and sync timeline
+      stopMarker.on('click', () => {
+        setSelectedStopIndex(idx);
+      });
+
       layerGroup.addLayer(stopMarker);
+      stopMarkersRef.current[idx] = stopMarker;
     });
 
-    // Fit map bounds to view the full journey
-    try {
-      map.fitBounds(layerGroup.getBounds(), { padding: [45, 45], maxZoom: 13 });
-      map.invalidateSize();
-    } catch (e) {
-      console.warn('Map fitBounds error:', e);
+    // Fit map bounds to view the full journey if no specific stop is currently being inspected
+    if (selectedStopIndex === null) {
+      try {
+        map.fitBounds(layerGroup.getBounds(), { padding: [45, 45], maxZoom: 13 });
+        map.invalidateSize();
+      } catch (e) {
+        console.warn('Map fitBounds error:', e);
+      }
     }
 
-  }, [routeData, ride, startLocation, destination, startTime]);
+  }, [routeData, ride, startLocation, destination, startTime, selectedStopIndex]);
 
   // Core route calculation function
   const handleCalculateRouteWith = useCallback(async (start: string, dest: string) => {
     if (!start.trim() || !dest.trim()) return;
     try {
       setCalculating(true);
-      setStatusMessage('Calculating real-time route...');
+      setStatusMessage('Calculating real-time highway route...');
       const data = await previewRoute({
         start_location: start.trim(),
         destination: dest.trim(),
@@ -258,6 +293,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       });
 
       setRouteData(data);
+      setSelectedStopIndex(null);
       setStatusMessage(`Route calculated: ${data.total_distance_km} km (${Math.floor(data.estimated_duration_minutes / 60)}h ${data.estimated_duration_minutes % 60}m)`);
     } catch (err: any) {
       setStatusMessage(`Route calculation error: ${err.message}`);
@@ -288,6 +324,23 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       if (routeDebounceTimer.current) clearTimeout(routeDebounceTimer.current);
     };
   }, [startLocation, destination, handleCalculateRouteWith]);
+
+  // Interactive Stop click handler from the Timeline list
+  const handleInspectStop = (stop: any, idx: number) => {
+    setSelectedStopIndex(idx);
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Smoothly fly map to the selected stop coordinates
+    map.flyTo([stop.lat, stop.lng], 14, { duration: 1.1 });
+
+    // Open popup for this marker
+    setTimeout(() => {
+      if (stopMarkersRef.current[idx]) {
+        stopMarkersRef.current[idx].openPopup();
+      }
+    }, 350);
+  };
 
   const handleUpdateActiveRide = async () => {
     if (!ride) return;
@@ -361,6 +414,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const displayWeather = routeData?.weather?.overall_verdict || ride?.weather_verdict || 'GO';
   const displayStops = routeData?.timeline || ride?.stops || [];
   const routingEngine = routeData?.routing_provider || 'Live Highway Engine';
+
+  // Filter stops by category
+  const filteredStops = displayStops.filter((stop: any) => {
+    const type = stop.stop_type || stop.type || 'checkpoint';
+    if (timelineFilter === 'all') return true;
+    if (timelineFilter === 'fuel') return type === 'fuel';
+    if (timelineFilter === 'food') return type === 'food';
+    if (timelineFilter === 'restroom') return type === 'restroom';
+    if (timelineFilter === 'repair') return type === 'repair';
+    return true;
+  });
+
+  const selectedStop = selectedStopIndex !== null ? displayStops[selectedStopIndex] : null;
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -570,7 +636,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             {calculating ? (
               <span className="text-sky-400 font-medium flex items-center gap-1.5">
                 <RotateCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
-                <span>Calculating real-time route...</span>
+                <span>Calculating real-time highway route...</span>
               </span>
             ) : statusMessage ? (
               <span className="text-slate-300 font-medium">{statusMessage}</span>
@@ -630,18 +696,18 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </span>
         </div>
         <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-400 block font-medium">Planned Stops</span>
-          <span className="text-lg font-bold text-slate-200 font-mono mt-0.5 block">{displayStops.length} Checkpoints</span>
+          <span className="text-[11px] text-slate-400 block font-medium">Checkpoints &amp; Stops</span>
+          <span className="text-lg font-bold text-slate-200 font-mono mt-0.5 block">{displayStops.length} Along Route</span>
         </div>
       </div>
 
-      {/* Map and Timeline Layout */}
+      {/* Map and Interactive Timeline Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Leaflet Map Column */}
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[540px] relative">
+        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[560px] relative">
           <div className="flex items-center justify-between mb-2.5 px-1">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Highway Route Map</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Live Highway Map</span>
               <span className="text-[11px] text-slate-500">|</span>
               <div className="flex items-center gap-3 text-[11px] text-slate-400">
                 <span className="flex items-center gap-1">
@@ -654,7 +720,9 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 </span>
               </div>
             </div>
-            <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">{destination}</span>
+            <span className="text-[11px] text-sky-400 font-mono hidden sm:inline">
+              {selectedStop ? `Inspecting: ${selectedStop.name}` : destination}
+            </span>
           </div>
 
           {/* Interactive Map */}
@@ -671,41 +739,108 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </div>
         </div>
 
-        {/* Timeline Column */}
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[540px]">
-          <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2.5">
-            <div>
-              <h3 className="text-white font-bold text-xs uppercase tracking-wider">Timeline &amp; Checkpoints</h3>
-              <p className="text-[11px] text-slate-400">Fuel stops optimized for group safe range limit</p>
+        {/* Timeline Column with Click-to-Inspect Stops */}
+        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[560px]">
+          <div className="flex flex-col gap-2 mb-3 border-b border-slate-800 pb-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-bold text-xs uppercase tracking-wider">Timeline Checkpoints</h3>
+                <p className="text-[11px] text-slate-400">Click any stop to locate and inspect on map</p>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
+                {filteredStops.length} Stops
+              </span>
             </div>
-            <span className="text-[11px] font-semibold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
-              {displayStops.length} Stops
-            </span>
+
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto pt-1">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'fuel', label: 'Fuel' },
+                { id: 'food', label: 'Food' },
+                { id: 'restroom', label: 'Washrooms' },
+                { id: 'repair', label: 'Repairs' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setTimelineFilter(f.id as any)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition whitespace-nowrap ${
+                    timelineFilter === f.id
+                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Scrollable list of stops */}
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-            {displayStops.map((stop: any, idx: number) => {
+            {filteredStops.map((stop: any, idx: number) => {
+              const originalIndex = displayStops.findIndex((s: any) => s.id === stop.id || s.name === stop.name);
               const stopType = stop.stop_type || stop.type || 'checkpoint';
               const km = stop.distance_from_start_km ?? stop.km_from_start ?? 0;
+              const isSelected = selectedStopIndex === (originalIndex !== -1 ? originalIndex : idx);
+              const amenities = stop.amenities || [];
+
               return (
                 <div
                   key={stop.id || idx}
-                  className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl text-xs space-y-1 hover:border-slate-700 transition"
+                  onClick={() => handleInspectStop(stop, originalIndex !== -1 ? originalIndex : idx)}
+                  className={`p-3 rounded-xl text-xs space-y-1.5 transition cursor-pointer border ${
+                    isSelected
+                      ? 'bg-sky-950/40 border-sky-500 ring-1 ring-sky-500/40 shadow-lg'
+                      : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/30'
+                  }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700/60">
-                      #{idx + 1} {stopType}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${
+                        stopType === 'fuel'
+                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                          : stopType === 'food'
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          : stopType === 'restroom'
+                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                          : stopType === 'repair'
+                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/30'
+                          : 'bg-slate-800 text-slate-300 border-slate-700'
+                      }`}>
+                        #{stop.order || idx + 1} {stopType}
+                      </span>
+                      {isSelected && (
+                        <span className="text-[10px] font-bold text-sky-400 flex items-center gap-0.5">
+                          <Crosshair className="w-3 h-3" />
+                          <span>FOCUSED</span>
+                        </span>
+                      )}
+                    </div>
                     <span className="font-mono text-sky-400 font-bold">{stop.eta || '08:00 AM'}</span>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-0.5">
-                    <h4 className="text-white font-semibold text-xs">{stop.name}</h4>
-                    <span className="text-[11px] text-slate-400 font-mono">{km} km</span>
+                    <h4 className="text-white font-semibold text-xs leading-snug">{stop.name}</h4>
+                    <span className="text-[11px] text-slate-400 font-mono shrink-0 ml-2">{km} km</span>
                   </div>
 
                   {stop.notes && (
                     <p className="text-[11px] text-slate-400 leading-snug">{stop.notes}</p>
+                  )}
+
+                  {/* Real-time amenities pills */}
+                  {amenities.length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {amenities.map((a: string, aidx: number) => (
+                        <span
+                          key={aidx}
+                          className="bg-slate-900 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded border border-slate-800"
+                        >
+                          {a}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
               );

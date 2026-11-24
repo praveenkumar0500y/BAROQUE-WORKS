@@ -288,6 +288,41 @@ def plan_fuel_stops(
         "warnings": warnings
     }
 
+_REVERSE_CACHE = {}
+
+def get_location_name_near(lat: float, lng: float) -> str:
+    """Reverse geocode coordinates using OSM Nominatim to find real town/district name."""
+    cache_key = f"{round(lat, 2)},{round(lng, 2)}"
+    if cache_key in _REVERSE_CACHE:
+        return _REVERSE_CACHE[cache_key]
+
+    try:
+        headers = {"User-Agent": "RideCaptainCopilot/1.1 (ridecopilot@gmail.com)"}
+        with httpx.Client(timeout=2.5) as client:
+            res = client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={"lat": lat, "lon": lng, "format": "json", "zoom": 12},
+                headers=headers
+            )
+            if res.status_code == 200:
+                addr = res.json().get("address", {})
+                town = (
+                    addr.get("town") or 
+                    addr.get("city") or 
+                    addr.get("village") or 
+                    addr.get("suburb") or 
+                    addr.get("county") or 
+                    addr.get("state_district") or 
+                    ""
+                )
+                if town:
+                    clean_town = town.replace("taluk", "").strip()
+                    _REVERSE_CACHE[cache_key] = clean_town
+                    return clean_town
+    except Exception:
+        pass
+    return ""
+
 def synthesize_dynamic_stops(
     polyline: List[List[float]],
     total_distance_km: float,
@@ -296,33 +331,35 @@ def synthesize_dynamic_stops(
     start_time: str,
     smallest_tank_range_km: float
 ) -> Dict[str, Any]:
-    """Generate realistic along-the-route stops for any pair of coordinates in India."""
-    # Find points along polyline by percentage
+    """Generate realistic along-the-route stops using real geographical town locations from OSM."""
     def get_point_at_ratio(ratio: float) -> List[float]:
         idx = min(len(polyline) - 1, max(0, int(len(polyline) * ratio)))
         return polyline[idx]
 
-    # Strategic fuel locations along the route (every safe_range * 0.7)
+    # Strategic fuel candidate locations along the route every ~45 km
     safe_range = 0.8 * smallest_tank_range_km
     fuel_stations = []
     
-    # Place candidate stations along the route every ~40-60 km
     step_km = 45.0
     accum_km = step_km
     st_idx = 1
+    brands = ["Indian Oil Swagat", "BPCL Highway Ghar", "HPCL Highway Comfort", "Shell Select", "Nayara Energy"]
     while accum_km < total_distance_km:
         ratio = accum_km / total_distance_km
         pt = get_point_at_ratio(ratio)
-        brand = "Indian Oil" if st_idx % 3 == 0 else ("BPCL" if st_idx % 3 == 1 else "HPCL")
+        town = get_location_name_near(pt[0], pt[1])
+        town_suffix = f" - {town}" if town else ""
+        brand = brands[(st_idx - 1) % len(brands)]
         fuel_stations.append({
             "id": f"fuel-{st_idx}",
-            "name": f"{brand} Highway Care ({round(accum_km)} km)",
+            "name": f"{brand}{town_suffix}",
             "brand": brand,
             "lat": pt[0],
             "lng": pt[1],
             "distance_from_start_km": round(accum_km, 1),
             "has_food_nearby": (st_idx % 2 == 0),
-            "has_restroom": True
+            "has_restroom": True,
+            "amenities": ["High-Octane XP95 / Speed", "Clean Restrooms", "Nitrogen Air Top-Up", "24x7 Convenience Store"]
         })
         accum_km += step_km
         st_idx += 1
@@ -335,6 +372,7 @@ def synthesize_dynamic_stops(
 
     # 1. Starting Checkpoint
     timeline.append({
+        "id": "stop-start",
         "order": 1,
         "type": "checkpoint",
         "name": f"Departure: {start_name}",
@@ -343,67 +381,126 @@ def synthesize_dynamic_stops(
         "km_from_start": 0.0,
         "eta": start_time,
         "duration_minutes": 15,
+        "amenities": ["Toll Plaza Assembly", "Formation Briefing", "Tyre Pressure Verification"],
         "notes": "Full tank briefing, tire pressure verification, formation rollout."
     })
     cum_stop_minutes += 15
 
-    # 2. Breakfast Stop (around ~60-80 km or 30% of journey)
-    bf_ratio = min(0.35, 75.0 / max(100.0, total_distance_km))
-    bf_pt = get_point_at_ratio(bf_ratio)
-    bf_km = round(total_distance_km * bf_ratio, 1)
-    bf_eta = compute_eta(start_time, bf_km, 65.0, cum_stop_minutes)
-    timeline.append({
-        "order": 2,
-        "type": "food",
-        "name": f"Highway Breakfast & Refreshment Stop",
-        "lat": bf_pt[0],
-        "lng": bf_pt[1],
-        "km_from_start": bf_km,
-        "eta": bf_eta,
-        "duration_minutes": 45,
-        "notes": "Breakfast, filter coffee, hydration, and clean restroom facility."
-    })
-    cum_stop_minutes += 45
+    # 2. Breakfast & Food Stop (around ~60-80 km or 25% of journey)
+    if total_distance_km >= 60.0:
+        bf_ratio = min(0.32, 70.0 / max(80.0, total_distance_km))
+        bf_pt = get_point_at_ratio(bf_ratio)
+        bf_town = get_location_name_near(bf_pt[0], bf_pt[1])
+        bf_town_str = f" ({bf_town})" if bf_town else ""
+        bf_km = round(total_distance_km * bf_ratio, 1)
+        bf_eta = compute_eta(start_time, bf_km, 65.0, cum_stop_minutes)
+        timeline.append({
+            "id": "stop-food-1",
+            "order": 2,
+            "type": "food",
+            "name": f"Highway Breakfast & Food Plaza{bf_town_str}",
+            "lat": bf_pt[0],
+            "lng": bf_pt[1],
+            "km_from_start": bf_km,
+            "eta": bf_eta,
+            "duration_minutes": 45,
+            "amenities": ["Hot South Indian Breakfast", "Filter Coffee & Tea", "Clean Washrooms", "Motorcycle Parking"],
+            "notes": "Highway breakfast, hydration, filter coffee, and restroom facility."
+        })
+        cum_stop_minutes += 45
 
-    # 3. Comfort / Restroom stop (around 60% of route if > 120 km)
-    if total_distance_km > 120.0:
-        cr_ratio = 0.58
+    # 3. Clean Highway Public Washrooms (around ~45-55% of route)
+    if total_distance_km >= 100.0:
+        cr_ratio = 0.50
         cr_pt = get_point_at_ratio(cr_ratio)
+        cr_town = get_location_name_near(cr_pt[0], cr_pt[1])
+        cr_town_str = f" ({cr_town})" if cr_town else ""
         cr_km = round(total_distance_km * cr_ratio, 1)
         cr_eta = compute_eta(start_time, cr_km, 65.0, cum_stop_minutes)
         timeline.append({
+            "id": "stop-washroom-1",
             "order": 3,
             "type": "restroom",
-            "name": "Comfort & Hydration Break",
+            "name": f"Highway Clean Public Washroom Plaza{cr_town_str}",
             "lat": cr_pt[0],
             "lng": cr_pt[1],
             "km_from_start": cr_km,
             "eta": cr_eta,
             "duration_minutes": 15,
-            "notes": "Quick visor cleaning, stretch, and clean highway amenities."
+            "amenities": ["Sanitized Western Toilets", "Drinking Water Refill", "Visor Cleaning", "Energy Drinks"],
+            "notes": "Dedicated comfort stop ensuring no gap longer than 50 km without clean restrooms."
         })
         cum_stop_minutes += 15
 
-    # 4. Fuel Stop (from planned fuel stops)
+    # 4. Strategic Refuel Stop (from fuel algorithm)
     if fuel_plan["fuel_stops"]:
-        fstop = fuel_plan["fuel_stops"][-1]
-        f_eta = compute_eta(start_time, fstop["distance_from_start_km"], 65.0, cum_stop_minutes)
-        timeline.append({
-            "order": len(timeline) + 1,
-            "type": "fuel",
-            "name": f"Refuel: {fstop['name']}",
-            "lat": fstop["lat"],
-            "lng": fstop["lng"],
-            "km_from_start": fstop["distance_from_start_km"],
-            "eta": f_eta,
-            "duration_minutes": 25,
-            "notes": f"Mandatory fuel top-up for all motorcycles. Safeguards {smallest_tank_range_km:.0f} km lowest range bike."
-        })
-        cum_stop_minutes += 25
+        for fidx, fstop in enumerate(fuel_plan["fuel_stops"]):
+            f_eta = compute_eta(start_time, fstop["distance_from_start_km"], 65.0, cum_stop_minutes)
+            timeline.append({
+                "id": f"stop-fuel-{fidx+1}",
+                "order": len(timeline) + 1,
+                "type": "fuel",
+                "name": f"Strategic Refuel: {fstop['name']}",
+                "lat": fstop["lat"],
+                "lng": fstop["lng"],
+                "km_from_start": fstop["distance_from_start_km"],
+                "eta": f_eta,
+                "duration_minutes": 25,
+                "amenities": fstop.get("amenities", ["XP95 Petrol", "Clean Restrooms", "Nitrogen Air Station"]),
+                "notes": f"Mandatory fuel refill. Safeguards {smallest_tank_range_km:.0f} km lowest range bike in group."
+            })
+            cum_stop_minutes += 25
 
-    # 5. Destination Arrival
+    # 5. Motorcycle Repair & Puncture Safety Checkpoint (around ~70% of route)
+    if total_distance_km >= 80.0:
+        rep_ratio = 0.70
+        rep_pt = get_point_at_ratio(rep_ratio)
+        rep_town = get_location_name_near(rep_pt[0], rep_pt[1])
+        rep_town_str = f" ({rep_town})" if rep_town else ""
+        rep_km = round(total_distance_km * rep_ratio, 1)
+        rep_eta = compute_eta(start_time, rep_km, 65.0, cum_stop_minutes)
+        timeline.append({
+            "id": "stop-repair-1",
+            "order": len(timeline) + 1,
+            "type": "repair",
+            "name": f"Highway Motorcycle Assistance & Puncture Hub{rep_town_str}",
+            "lat": rep_pt[0],
+            "lng": rep_pt[1],
+            "km_from_start": rep_km,
+            "eta": rep_eta,
+            "duration_minutes": 15,
+            "amenities": ["Tubeless Puncture Repair", "High-Pressure Air Inflator", "Drive Chain Clean & Lube", "Emergency Spares"],
+            "notes": "Emergency safety net checkpoint for tyre pressure check, puncture repair, and chain lube."
+        })
+        cum_stop_minutes += 15
+
+    # 6. Regrouping & Hydration Checkpoint (if journey > 180 km)
+    if total_distance_km > 180.0:
+        reg_ratio = 0.85
+        reg_pt = get_point_at_ratio(reg_ratio)
+        reg_town = get_location_name_near(reg_pt[0], reg_pt[1])
+        reg_town_str = f" ({reg_town})" if reg_town else ""
+        reg_km = round(total_distance_km * reg_ratio, 1)
+        reg_eta = compute_eta(start_time, reg_km, 60.0, cum_stop_minutes)
+        timeline.append({
+            "id": "stop-regroup-1",
+            "order": len(timeline) + 1,
+            "type": "checkpoint",
+            "name": f"Regrouping & Foothill Checkpoint{reg_town_str}",
+            "lat": reg_pt[0],
+            "lng": reg_pt[1],
+            "km_from_start": reg_km,
+            "eta": reg_eta,
+            "duration_minutes": 15,
+            "amenities": ["Pack Regrouping", "Hydration", "Ghats Entry Check"],
+            "notes": "Regroup the riding formation before the final approach or ghat section."
+        })
+        cum_stop_minutes += 15
+
+    # 7. Destination Arrival
     dest_eta = compute_eta(start_time, total_distance_km, 60.0, cum_stop_minutes)
     timeline.append({
+        "id": "stop-dest",
         "order": len(timeline) + 1,
         "type": "checkpoint",
         "name": f"Destination: {dest_name}",
@@ -412,10 +509,11 @@ def synthesize_dynamic_stops(
         "km_from_start": total_distance_km,
         "eta": dest_eta,
         "duration_minutes": 60,
-        "notes": "Arrival celebration, parking, and lunch."
+        "amenities": ["Finish Line", "Dedicated Group Parking", "Lunch & Celebration", "Trip Debrief"],
+        "notes": "Arrival celebration, motorcycle cooldown, group lunch and stay check-in."
     })
 
-    # Sort timeline by km
+    # Sort timeline by km and re-index order
     timeline = sorted(timeline, key=lambda x: x["km_from_start"])
     for idx, t in enumerate(timeline):
         t["order"] = idx + 1

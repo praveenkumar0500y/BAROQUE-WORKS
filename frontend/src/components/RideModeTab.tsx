@@ -130,21 +130,21 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Cockpit Mode Top Status */}
-      <div className="bg-slate-950 border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-amber-400" />
-            <h2 className="text-lg font-black text-white tracking-wider uppercase">Cockpit Voice Mode</h2>
+            <Radio className="w-5 h-5 text-sky-400" />
+            <h2 className="text-base font-bold text-white tracking-wider uppercase">Cockpit Voice Mode</h2>
           </div>
 
           {/* Language Selector */}
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-2xl">
-            <Languages className="w-4 h-4 text-amber-400" />
-            <span className="text-xs text-slate-300 font-bold">Language:</span>
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
+            <Languages className="w-4 h-4 text-sky-400" />
+            <span className="text-xs text-slate-300 font-medium">Language:</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as any)}
-              className="bg-transparent text-amber-400 text-xs font-bold focus:outline-none cursor-pointer"
+              className="bg-transparent text-sky-400 text-xs font-semibold focus:outline-none cursor-pointer"
             >
               <option value="en" className="bg-slate-900">English</option>
               <option value="hi" className="bg-slate-900">Hindi</option>
@@ -155,7 +155,7 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
 
         {/* Live Alert Banner */}
         {alertBanner && (
-          <div className="mt-4 p-3 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2">
+          <div className="mt-4 p-3 bg-sky-600 text-white font-semibold rounded-xl text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             <span>{alertBanner}</span>
           </div>
@@ -165,108 +165,89 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
         <div className="my-8 flex flex-col items-center justify-center space-y-4">
           <button
             onClick={toggleListening}
-            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl ${
+            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl ${
               isListening
                 ? 'bg-rose-600 text-white ring-8 ring-rose-500/30'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 ring-8 ring-amber-500/20'
+                : 'bg-sky-600 hover:bg-sky-500 text-white ring-8 ring-sky-500/20'
             }`}
           >
             {isListening ? (
               <>
                 <MicOff className="w-10 h-10 sm:w-12 sm:h-12" />
-                <span className="text-[11px] font-black uppercase mt-1">Listening</span>
+                <span className="text-[11px] font-bold uppercase mt-1">Listening</span>
               </>
             ) : (
               <>
                 <Mic className="w-10 h-10 sm:w-12 sm:h-12" />
-                <span className="text-[11px] font-black uppercase mt-1">Tap To Speak</span>
+                <span className="text-[11px] font-bold uppercase mt-1">Tap To Speak</span>
               </>
             )}
           </button>
 
           {transcript && (
-            <div className="text-xs font-mono text-amber-400 bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800">
+            <div className="text-xs font-mono text-sky-400 bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800">
               "{transcript}"
             </div>
           )}
         </div>
 
         {/* Spoken Response Box */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-inner">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span className="font-bold flex items-center gap-1.5 text-amber-400 uppercase tracking-wider text-[10px]">
-              <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? 'text-emerald-400' : ''}`} />
+            <span className="font-bold flex items-center gap-1.5 text-sky-400 uppercase tracking-wider text-[10px]">
+              <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? 'text-emerald-400 animate-pulse' : ''}`} />
               Copilot Audio Response
             </span>
             {isPlayingAudio && (
-              <span className="text-emerald-400 font-semibold text-[10px]">Playing Audio...</span>
+              <span className="text-emerald-400 font-mono text-[11px]">Speaking...</span>
             )}
           </div>
-          <p className="text-sm sm:text-base text-slate-100 font-medium leading-relaxed">
-            "{response}"
-          </p>
+          <p className="text-sm text-slate-100 font-medium leading-relaxed">{response}</p>
         </div>
 
-        {/* Action Controls & Simulation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
-          <button
-            onClick={handleBriefMe}
-            className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition"
-          >
-            <Volume2 className="w-4 h-4" />
-            <span>Spoken Overview Briefing</span>
-          </button>
+        {/* Action Controls & Quick Queries */}
+        <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              onClick={handleBriefMe}
+              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2"
+            >
+              <Volume2 className="w-4 h-4" />
+              <span>Spoken Ride Briefing</span>
+            </button>
 
-          <button
-            onClick={triggerWeatherAlert}
-            className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition"
-          >
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-            <span>Simulate Spoken Alert</span>
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={triggerWeatherAlert}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-medium transition"
+            >
+              Simulate Highway Alert
+            </button>
+          </div>
 
-      {/* Quick Tap Query Chips */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-          Quick Hands-Free Query Prompts
-        </h3>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <button
-            onClick={() => handleQuery('How far is the next fuel stop?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
-          >
-            "How far is the next fuel stop?"
-          </button>
-
-          <button
-            onClick={() => handleQuery('Will it rain before lunch?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
-          >
-            "Will it rain before lunch?"
-          </button>
-
-          <button
-            onClick={() => handleQuery('Who has the smallest tank?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
-          >
-            "Who has the smallest tank?"
-          </button>
-
-          <button
-            onClick={() => handleQuery('confirm')}
-            className="px-3.5 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 rounded-xl transition font-bold"
-          >
-            Voice Command: "Confirm"
-          </button>
-
-          <button
-            onClick={() => handleQuery('cancel')}
-            className="px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 rounded-xl transition font-bold"
-          >
-            Voice Command: "Cancel"
-          </button>
+          {/* Quick Query Chips */}
+          <div className="pt-2">
+            <span className="text-[11px] text-slate-500 font-medium block mb-2">Hands-Free Quick Queries:</span>
+            <div className="flex flex-wrap gap-2">
+              {[
+                'How far is the next fuel stop?',
+                'Will it rain before lunch?',
+                'Who has the smallest tank range?',
+                'Confirm next action',
+                'Cancel next action',
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => {
+                    setTranscript(chip);
+                    handleQuery(chip);
+                  }}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 rounded-xl text-xs transition"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

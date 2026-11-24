@@ -96,11 +96,13 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header & Stats */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Expense Split &amp; UPI Ledger</span>
-            <h2 className="text-xl font-black text-white">Cost Split &amp; Settlement Transfers</h2>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
+              Expense Split &amp; UPI Ledger
+            </span>
+            <h2 className="text-xl font-bold text-white mt-1">Cost Split &amp; Settlement Transfers</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               Net cash-flow debt minimization algorithm resolves group debts with instant UPI payment deep links.
             </p>
@@ -109,7 +111,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
             >
               <Plus className="w-4 h-4" />
               <span>Record Expense</span>
@@ -119,21 +121,21 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
 
         {/* Totals Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-1">
-          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
-            <span className="text-[11px] text-slate-400">Total Group Spend</span>
-            <div className="text-xl font-black text-white font-mono mt-0.5">
+          <div className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl">
+            <span className="text-[11px] text-slate-400 font-medium">Total Group Spend</span>
+            <div className="text-xl font-bold text-white font-mono mt-0.5">
               INR {settlement?.total_expenses.toFixed(2) || '0.00'}
             </div>
           </div>
-          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
-            <span className="text-[11px] text-slate-400">Recorded Bills</span>
-            <div className="text-xl font-black text-amber-400 font-mono mt-0.5">
+          <div className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl">
+            <span className="text-[11px] text-slate-400 font-medium">Recorded Bills</span>
+            <div className="text-xl font-bold text-sky-400 font-mono mt-0.5">
               {expenses.length} bills
             </div>
           </div>
-          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
-            <span className="text-[11px] text-slate-400">Optimal Transfers</span>
-            <div className="text-xl font-black text-emerald-400 font-mono mt-0.5">
+          <div className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl">
+            <span className="text-[11px] text-slate-400 font-medium">Optimal Transfers</span>
+            <div className="text-xl font-bold text-emerald-400 font-mono mt-0.5">
               {settlement?.settlements.length || 0} transfers
             </div>
           </div>
@@ -157,7 +159,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                 value={payerId}
                 onChange={(e) => setPayerId(e.target.value)}
                 required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-sky-500"
               >
                 <option value="">Select Rider</option>
                 {ride.riders.map((r) => (
@@ -177,7 +179,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                 placeholder="e.g. 1500"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white font-mono focus:outline-none focus:border-sky-500"
               />
             </div>
 
@@ -186,7 +188,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-sky-500"
               >
                 <option value="food">Food &amp; Breakfast</option>
                 <option value="fuel">Fuel Refill</option>
@@ -204,7 +206,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                 placeholder="e.g. Breakfast stop"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-sky-500"
               />
             </div>
           </div>
@@ -212,7 +214,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl"
+              className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl shadow-sm transition"
             >
               Save &amp; Recalculate
             </button>
@@ -236,28 +238,28 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
             {settlement?.settlements.map((item, idx) => (
               <div
                 key={idx}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-lg space-y-3 transition"
+                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-xl space-y-3 transition"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
                     Transfer #{idx + 1}
                   </span>
-                  <span className="text-base font-black text-emerald-400 font-mono">
+                  <span className="text-base font-bold text-emerald-400 font-mono">
                     INR {item.amount.toFixed(2)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs py-1">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-400 uppercase">Debtor</span>
-                    <div className="font-bold text-rose-400">{item.from_rider_name}</div>
+                    <span className="text-[10px] text-slate-400 uppercase font-medium">Debtor</span>
+                    <div className="font-semibold text-rose-400">{item.from_rider_name}</div>
                   </div>
 
                   <ArrowRight className="w-4 h-4 text-slate-600" />
 
                   <div className="space-y-0.5 text-right">
-                    <span className="text-[10px] text-slate-400 uppercase">Creditor</span>
-                    <div className="font-bold text-emerald-400">{item.to_rider_name}</div>
+                    <span className="text-[10px] text-slate-400 uppercase font-medium">Creditor</span>
+                    <div className="font-semibold text-emerald-400">{item.to_rider_name}</div>
                   </div>
                 </div>
 
@@ -268,7 +270,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
 
                   <a
                     href={item.upi_link}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition whitespace-nowrap"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition whitespace-nowrap shadow-sm"
                   >
                     <span>Pay via UPI</span>
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -281,7 +283,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
       </div>
 
       {/* Expenses Ledger Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-lg overflow-hidden space-y-3 p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden space-y-3 p-4">
         <h3 className="text-white font-bold text-sm">Expenses Ledger</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -300,11 +302,11 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                   <td className="py-2.5 px-3 font-medium text-white">{e.description}</td>
                   <td className="py-2.5 px-3 text-slate-300">{e.payer_name}</td>
                   <td className="py-2.5 px-3">
-                    <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px] uppercase font-bold">
+                    <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded text-[10px] uppercase font-bold border border-slate-700/60">
                       {e.category}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3 font-mono font-bold text-amber-400">
+                  <td className="py-2.5 px-3 font-mono font-bold text-sky-400">
                     INR {e.amount.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-3 text-slate-400">Equal among confirmed</td>

@@ -35,6 +35,17 @@ export async function parseChatAndPlan(
   return res.json();
 }
 
+export async function fetchLocationSuggestions(query: string): Promise<Array<{ name: string; description: string }>> {
+  if (!query.trim()) return [];
+  try {
+    const res = await fetch(`${API_BASE}/locations/suggest?q=${encodeURIComponent(query.trim())}`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch (err) {
+    return [];
+  }
+}
+
 export async function previewRoute(payload: {
   start_location: string;
   destination: string;

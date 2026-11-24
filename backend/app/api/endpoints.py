@@ -77,6 +77,106 @@ def parse_chat_and_plan(req: ChatParseWithRouteRequest, db: Session = Depends(ge
     )
     return result
 
+CURATED_SUGGESTIONS = [
+    {"name": "Nelamangala Toll Plaza, Bangalore", "description": "Bangalore Departure Hub, Karnataka"},
+    {"name": "Electronic City Toll Plaza, Bangalore", "description": "Hosur / Tamil Nadu Departure Hub, Bangalore"},
+    {"name": "KIAL Airport Toll Plaza, Bangalore", "description": "North Bangalore / Hyderabad Departure Hub"},
+    {"name": "Tumkur Road Toll Plaza, Bangalore", "description": "NH 48 Gateway, Karnataka"},
+    {"name": "Bangalore (Bengaluru)", "description": "Karnataka, India"},
+    {"name": "Sakleshpur", "description": "Hassan District, Western Ghats, Karnataka"},
+    {"name": "Chikmagalur", "description": "Mullayanagiri & Baba Budangiri, Karnataka"},
+    {"name": "Ooty (Udhagamandalam)", "description": "Nilgiris, Tamil Nadu"},
+    {"name": "Coorg (Madikeri)", "description": "Kodagu District, Karnataka"},
+    {"name": "Nandi Hills", "description": "Chikkaballapur, Karnataka"},
+    {"name": "Mysore (Mysuru)", "description": "Heritage City, Karnataka"},
+    {"name": "Wayanad", "description": "Western Ghats, Kerala"},
+    {"name": "Munnar", "description": "Tea Gardens, Idukki, Kerala"},
+    {"name": "Kodaikanal", "description": "Princess of Hill Stations, Tamil Nadu"},
+    {"name": "Goa (Panaji / Candolim)", "description": "Coastal Highway, Goa"},
+    {"name": "Hampi", "description": "Vijayanagara Ruins, Bellary, Karnataka"},
+    {"name": "Gokarna", "description": "Coastal Karnataka"},
+    {"name": "Dandeli", "description": "Kali River Adventure, Karnataka"},
+    {"name": "Pondicherry (Puducherry)", "description": "East Coast Road (ECR)"},
+    {"name": "Mahabalipuram", "description": "Coastal Temple Town, Tamil Nadu"},
+    {"name": "Yercaud", "description": "Shevaroy Hills, Tamil Nadu"},
+    {"name": "Shimoga (Shivamogga)", "description": "Jog Falls Gateway, Karnataka"},
+    {"name": "Agumbe", "description": "Sunset Point & Rainforest Ghats, Karnataka"},
+    {"name": "Kudremukh", "description": "National Park, Chikkamagaluru, Karnataka"},
+    {"name": "Mangalore (Mangaluru)", "description": "Port City & Coastal Highway, Karnataka"},
+    {"name": "Lonavala", "description": "Mumbai-Pune Highway, Maharashtra"},
+    {"name": "Mahabaleshwar", "description": "Western Ghats, Maharashtra"},
+    {"name": "Lavasa", "description": "Pune Hills, Maharashtra"},
+    {"name": "Alibaug", "description": "Coastal Maharashtra"},
+    {"name": "Hyderabad", "description": "Telangana, India"},
+    {"name": "Chennai", "description": "Tamil Nadu, India"},
+    {"name": "Mumbai", "description": "Maharashtra, India"},
+    {"name": "Pune", "description": "Maharashtra, India"},
+    {"name": "Jaipur", "description": "Pink City, Rajasthan"},
+    {"name": "Udaipur", "description": "City of Lakes, Rajasthan"},
+    {"name": "Rishikesh", "description": "Himalayan Foothills, Uttarakhand"},
+    {"name": "Manali", "description": "Kullu Valley, Himachal Pradesh"},
+    {"name": "Shimla", "description": "Himachal Pradesh, India"},
+    {"name": "Leh, Ladakh", "description": "Trans-Himalayan Highway, Ladakh"},
+    {"name": "Spiti Valley (Kaza)", "description": "High Altitude Cold Desert, Himachal Pradesh"},
+    {"name": "Kanyakumari", "description": "Southernmost Tip, Tamil Nadu"},
+    {"name": "Rameswaram", "description": "Pamban Bridge Route, Tamil Nadu"},
+    {"name": "Tirupati", "description": "Andhra Pradesh, India"},
+    {"name": "Belur and Halebidu", "description": "Hoysala Temples, Karnataka"},
+    {"name": "Kabini", "description": "Nagarhole National Park, Karnataka"},
+    {"name": "Bandipur", "description": "Tiger Reserve & Forest Highway, Karnataka"},
+    {"name": "Valparai", "description": "Anamalai Hills, 40 Hairpin Bends, Tamil Nadu"},
+    {"name": "Kolli Hills", "description": "70 Hairpin Bends Circuit, Tamil Nadu"},
+]
+
+@router.get("/locations/suggest")
+def suggest_locations(q: str = Query("", min_length=1)):
+    """Search for locations matching q and return suggestions dropdown list."""
+    query = q.strip().lower()
+    if not query:
+        return []
+
+    results = []
+    seen = set()
+
+    # 1. Search curated riding spots (0ms instant match)
+    for loc in CURATED_SUGGESTIONS:
+        name_lower = loc["name"].lower()
+        desc_lower = loc["description"].lower()
+        if query in name_lower or query in desc_lower:
+            key = loc["name"].lower()
+            if key not in seen:
+                seen.add(key)
+                results.append(loc)
+                if len(results) >= 6:
+                    break
+
+    # 2. Live search fallback if under limit
+    if len(results) < 6:
+        try:
+            headers = {"User-Agent": "RideCaptainCopilot/1.1 (ridecopilot@example.com)"}
+            with httpx.Client(timeout=2.0) as client:
+                resp = client.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params={"q": f"{q}, India", "format": "json", "limit": 5, "addressdetails": 1},
+                    headers=headers
+                )
+                if resp.status_code == 200:
+                    for item in resp.json():
+                        display = item.get("display_name", "")
+                        parts = [p.strip() for p in display.split(",") if p.strip()]
+                        name = parts[0] if parts else q
+                        desc = ", ".join(parts[1:4]) if len(parts) > 1 else "India"
+                        key = name.lower()
+                        if key not in seen:
+                            seen.add(key)
+                            results.append({"name": name, "description": desc})
+                            if len(results) >= 8:
+                                break
+        except Exception:
+            pass
+
+    return results
+
 @router.post("/route/preview")
 def preview_route(req: RoutePreviewRequest):
     """Live geocode and route preview for any start/destination pair."""
@@ -114,7 +214,7 @@ def preview_route(req: RoutePreviewRequest):
         "total_distance_km": route_info["total_distance_km"],
         "estimated_duration_minutes": route_info["estimated_duration_minutes"],
         "polyline": route_info["polyline"],
-        "routing_provider": route_info.get("provider", "OSRM"),
+        "routing_provider": "Live Highway Engine",
         "fuel_plan": stops_info["fuel_plan"],
         "timeline": stops_info["timeline"],
         "repair_shops": stops_info["repair_shops"],

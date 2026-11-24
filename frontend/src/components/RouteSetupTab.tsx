@@ -8,15 +8,10 @@ import {
   RotateCw,
   FileText,
   ArrowRight,
-  ShieldAlert,
-  Fuel,
-  Utensils,
-  Wrench,
-  CheckCircle2,
   SlidersHorizontal
 } from 'lucide-react';
 import type { RideDetails } from '../types';
-import { previewRoute, updateRideRoute } from '../api';
+import { previewRoute, updateRideRoute, fetchLocationSuggestions } from '../api';
 
 interface RouteSetupTabProps {
   ride: RideDetails | null;
@@ -47,6 +42,17 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const [rideDate, setRideDate] = useState(ride?.ride_date || '2026-11-29');
   const [startTime, setStartTime] = useState(ride?.start_time || '05:30 am');
 
+  // Autocomplete suggestion states
+  const [startSuggestions, setStartSuggestions] = useState<Array<{ name: string; description: string }>>([]);
+  const [destSuggestions, setDestSuggestions] = useState<Array<{ name: string; description: string }>>([]);
+  const [showStartDropdown, setShowStartDropdown] = useState(false);
+  const [showDestDropdown, setShowDestDropdown] = useState(false);
+
+  const startSearchTimer = useRef<any>(null);
+  const destSearchTimer = useRef<any>(null);
+  const startDropdownRef = useRef<HTMLDivElement>(null);
+  const destDropdownRef = useRef<HTMLDivElement>(null);
+
   // Preview data state (from live API)
   const [routeData, setRouteData] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
@@ -57,26 +63,33 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
-  const destinationPresets = [
-    { label: 'Sakleshpur', state: 'Karnataka' },
-    { label: 'Ooty', state: 'Tamil Nadu' },
-    { label: 'Coorg (Madikeri)', state: 'Karnataka' },
-    { label: 'Chikmagalur', state: 'Karnataka' },
-    { label: 'Nandi Hills', state: 'Karnataka' },
-    { label: 'Mysore', state: 'Karnataka' },
-    { label: 'Goa', state: 'Panaji' },
-    { label: 'Wayanad', state: 'Kerala' },
-  ];
+  // Close suggestion dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (startDropdownRef.current && !startDropdownRef.current.contains(event.target as Node)) {
+        setShowStartDropdown(false);
+      }
+      if (destDropdownRef.current && !destDropdownRef.current.contains(event.target as Node)) {
+        setShowDestDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Initialize or update Map with Start and Destination Pointers
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current).setView([13.0, 76.5], 8);
+      const map = L.map(mapContainerRef.current, {
+        attributionControl: false, // Clean map without external mentions
+      }).setView([13.0, 76.5], 8);
+
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+        attribution: '',
       }).addTo(map);
+
       mapInstanceRef.current = map;
     }
 
@@ -114,11 +127,11 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     // Helper: Create subtle numbered circular checkpoint marker
     const createCheckpointIcon = (type: string, order: number) => {
       let bg = '#334155';
-      if (type === 'fuel') bg = '#0284c7'; // sky blue
-      else if (type === 'food') bg = '#10b981'; // emerald
-      else if (type === 'restroom') bg = '#6366f1'; // indigo
-      else if (type === 'repair') bg = '#e11d48'; // rose
-      else if (type === 'checkpoint') bg = '#64748b'; // slate
+      if (type === 'fuel') bg = '#0284c7';
+      else if (type === 'food') bg = '#10b981';
+      else if (type === 'restroom') bg = '#6366f1';
+      else if (type === 'repair') bg = '#e11d48';
+      else if (type === 'checkpoint') bg = '#64748b';
 
       return L.divIcon({
         className: 'subtle-checkpoint-marker',
@@ -136,7 +149,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     // Draw Route Polyline
     if (activePolyline && activePolyline.length > 0) {
       const polyline = L.polyline(activePolyline, {
-        color: '#0284c7', // Professional Sky Blue
+        color: '#0284c7',
         weight: 4.5,
         opacity: 0.9,
         lineJoin: 'round',
@@ -146,7 +159,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
       // Add Start Marker (Point A)
       const startCoord = activePolyline[0];
-      const startIcon = createLocationPin('A', true, '#10b981'); // Emerald green pin
+      const startIcon = createLocationPin('A', true, '#10b981');
       const startPopup = `
         <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
           <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
@@ -162,7 +175,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
       // Add Destination Marker (Point B)
       const endCoord = activePolyline[activePolyline.length - 1];
-      const endIcon = createLocationPin('B', false, '#e11d48'); // Rose/Crimson pin
+      const endIcon = createLocationPin('B', false, '#e11d48');
       const endPopup = `
         <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 160px;">
           <div style="display: inline-block; background: #fff1f2; color: #e11d48; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
@@ -207,29 +220,33 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   // Initial preview calculation
   useEffect(() => {
     if (!ride && !routeData) {
-      handleCalculateRoute();
+      handleCalculateRouteWith(startLocation, destination);
     }
   }, []);
 
-  const handleCalculateRoute = async () => {
-    if (!startLocation.trim() || !destination.trim()) return;
+  const handleCalculateRouteWith = async (start: string, dest: string) => {
+    if (!start.trim() || !dest.trim()) return;
     try {
       setCalculating(true);
       setStatusMessage(null);
       const data = await previewRoute({
-        start_location: startLocation,
-        destination: destination,
+        start_location: start,
+        destination: dest,
         start_time: startTime,
         target_date: rideDate,
         smallest_tank_range_km: 301.4,
       });
       setRouteData(data);
-      setStatusMessage(`Route calculated via ${data.routing_provider || 'OpenStreetMap OSRM'}: ${data.total_distance_km} km`);
+      setStatusMessage(`Route calculated: ${data.total_distance_km} km (${Math.floor(data.estimated_duration_minutes / 60)}h ${data.estimated_duration_minutes % 60}m)`);
     } catch (err: any) {
       setStatusMessage(`Route calculation error: ${err.message}`);
     } finally {
       setCalculating(false);
     }
+  };
+
+  const handleCalculateRoute = () => {
+    handleCalculateRouteWith(startLocation, destination);
   };
 
   const handleUpdateActiveRide = async () => {
@@ -252,11 +269,52 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     }
   };
 
+  // Search input handlers with debounced dropdown suggestions
+  const handleStartChange = (val: string) => {
+    setStartLocation(val);
+    setShowStartDropdown(true);
+    if (startSearchTimer.current) clearTimeout(startSearchTimer.current);
+    startSearchTimer.current = setTimeout(async () => {
+      if (val.trim().length >= 1) {
+        const results = await fetchLocationSuggestions(val);
+        setStartSuggestions(results);
+      } else {
+        setStartSuggestions([]);
+      }
+    }, 180);
+  };
+
+  const selectStartLocation = (loc: { name: string; description: string }) => {
+    setStartLocation(loc.name);
+    setShowStartDropdown(false);
+    setTimeout(() => handleCalculateRouteWith(loc.name, destination), 50);
+  };
+
+  const handleDestChange = (val: string) => {
+    setDestination(val);
+    setShowDestDropdown(true);
+    if (destSearchTimer.current) clearTimeout(destSearchTimer.current);
+    destSearchTimer.current = setTimeout(async () => {
+      if (val.trim().length >= 1) {
+        const results = await fetchLocationSuggestions(val);
+        setDestSuggestions(results);
+      } else {
+        setDestSuggestions([]);
+      }
+    }, 180);
+  };
+
+  const selectDestLocation = (loc: { name: string; description: string }) => {
+    setDestination(loc.name);
+    setShowDestDropdown(false);
+    setTimeout(() => handleCalculateRouteWith(startLocation, loc.name), 50);
+  };
+
   const displayDistance = routeData?.total_distance_km || ride?.total_distance_km || 221.5;
   const displayDuration = routeData?.estimated_duration_minutes || ride?.duration_minutes || 235;
   const displayWeather = routeData?.weather?.overall_verdict || ride?.weather_verdict || 'GO';
   const displayStops = routeData?.timeline || ride?.stops || [];
-  const routingEngine = routeData?.routing_provider || 'OpenStreetMap OSRM';
+  const routingEngine = routeData?.routing_provider || 'Live Highway Engine';
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -291,40 +349,132 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </div>
         </div>
 
-        {/* Start & Destination Inputs */}
+        {/* Start & Destination Inputs with Autocomplete Dropdowns */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 text-xs">
-          {/* Start Point */}
-          <div className="md:col-span-4 space-y-1.5">
-            <label className="text-slate-300 font-medium flex items-center gap-1.5">
-              <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-[10px]">
-                A
-              </span>
-              <span>Start Location</span>
+          {/* Start Point Input with Dropdown Suggestions */}
+          <div className="md:col-span-4 space-y-1.5 relative" ref={startDropdownRef}>
+            <label className="text-slate-300 font-medium flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-[10px]">
+                  A
+                </span>
+                <span>Start Location</span>
+              </div>
+              {showStartDropdown && startSuggestions.length > 0 && (
+                <span className="text-[10px] text-sky-400 font-mono">{startSuggestions.length} suggestions</span>
+              )}
             </label>
-            <input
-              type="text"
-              value={startLocation}
-              onChange={(e) => setStartLocation(e.target.value)}
-              placeholder="e.g. Nelamangala Toll Plaza, Bangalore"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={startLocation}
+                onChange={(e) => handleStartChange(e.target.value)}
+                onFocus={() => {
+                  if (startSuggestions.length > 0) setShowStartDropdown(true);
+                  else if (startLocation.trim().length >= 1) handleStartChange(startLocation);
+                }}
+                placeholder="Type departure city, hub, or toll..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+              />
+              {startLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStartLocation('');
+                    setStartSuggestions([]);
+                    setShowStartDropdown(false);
+                  }}
+                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 text-xs"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Start Location Autocomplete Dropdown */}
+            {showStartDropdown && startSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-800/80">
+                {startSuggestions.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectStartLocation(item)}
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/90 transition flex flex-col gap-0.5 group"
+                  >
+                    <div className="font-semibold text-slate-100 group-hover:text-sky-300 flex items-center gap-1.5 text-xs">
+                      <Navigation className="w-3 h-3 text-emerald-400 shrink-0" />
+                      <span>{item.name}</span>
+                    </div>
+                    {item.description && (
+                      <span className="text-[11px] text-slate-400 pl-4 leading-tight">{item.description}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Ride End Goal / Destination */}
-          <div className="md:col-span-4 space-y-1.5">
-            <label className="text-slate-300 font-medium flex items-center gap-1.5">
-              <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-[10px]">
-                B
-              </span>
-              <span>Ride End Goal (Destination)</span>
+          {/* Ride End Goal / Destination Input with Dropdown Suggestions */}
+          <div className="md:col-span-4 space-y-1.5 relative" ref={destDropdownRef}>
+            <label className="text-slate-300 font-medium flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-[10px]">
+                  B
+                </span>
+                <span>Ride End Goal (Destination)</span>
+              </div>
+              {showDestDropdown && destSuggestions.length > 0 && (
+                <span className="text-[10px] text-sky-400 font-mono">{destSuggestions.length} suggestions</span>
+              )}
             </label>
-            <input
-              type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="e.g. Sakleshpur / Ooty / Coorg"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => handleDestChange(e.target.value)}
+                onFocus={() => {
+                  if (destSuggestions.length > 0) setShowDestDropdown(true);
+                  else if (destination.trim().length >= 1) handleDestChange(destination);
+                }}
+                placeholder="Type destination, hill station, or city..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+              />
+              {destination && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDestination('');
+                    setDestSuggestions([]);
+                    setShowDestDropdown(false);
+                  }}
+                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 text-xs"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Destination Autocomplete Dropdown */}
+            {showDestDropdown && destSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-800/80">
+                {destSuggestions.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => selectDestLocation(item)}
+                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/90 transition flex flex-col gap-0.5 group"
+                  >
+                    <div className="font-semibold text-slate-100 group-hover:text-sky-300 flex items-center gap-1.5 text-xs">
+                      <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
+                      <span>{item.name}</span>
+                    </div>
+                    {item.description && (
+                      <span className="text-[11px] text-slate-400 pl-4 leading-tight">{item.description}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Date & Time */}
@@ -337,7 +487,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               type="date"
               value={rideDate}
               onChange={(e) => setRideDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
             />
           </div>
 
@@ -351,33 +501,9 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               placeholder="05:30 am"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
             />
           </div>
-        </div>
-
-        {/* Quick Destination Presets */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="text-[11px] text-slate-400 font-medium mr-1">Popular Destinations:</span>
-          {destinationPresets.map((p) => {
-            const isSelected = destination.toLowerCase().includes(p.label.toLowerCase());
-            return (
-              <button
-                key={p.label}
-                onClick={() => {
-                  setDestination(p.label);
-                  setTimeout(handleCalculateRoute, 50);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
-                  isSelected
-                    ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
-                }`}
-              >
-                {p.label}
-              </button>
-            );
-          })}
         </div>
 
         {/* Actions Row */}

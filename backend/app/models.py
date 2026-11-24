@@ -68,6 +68,12 @@ class RideStop(Base):
     duration_minutes = Column(Integer, default=15)
     notes = Column(Text, default="")
     order_index = Column(Integer, default=0)
+    source = Column(String, default="osm") # osm, cached, estimated
+    brand = Column(String, default="")
+    offset_km = Column(Float, default=0.0)
+    tags_json = Column(Text, default="{}")
+    maps_url = Column(String, default="")
+    is_optional = Column(Boolean, default=False)
 
     ride = relationship("Ride", back_populates="stops")
 

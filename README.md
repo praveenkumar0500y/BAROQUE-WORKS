@@ -9,7 +9,7 @@
 [![React 19](https://img.shields.io/badge/React-19-61DAFB.svg?logo=react&logoColor=black)](#)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg?logo=vite&logoColor=white)](#)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-v4-38B2AC.svg?logo=tailwind-css&logoColor=white)](#)
-[![Tests Passing](https://img.shields.io/badge/Tests-9%20Passed-brightgreen.svg)](#)
+[![Tests Passing](https://img.shields.io/badge/Tests-14%20Passed-brightgreen.svg)](#)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -57,7 +57,7 @@ Organizing a weekend motorcycle group ride is exhausting:
 |---|---|---|---|
 | **1. Chat Import** | Import raw WhatsApp chat logs or one-click 45-message sample chat | Live LLM (Gemini / Anthropic) with schema validation | Deterministic mock parser for instant zero-key testing |
 | **2. Parsed Roster** | Extracted confirmed, undecided, and declined riders with bike matching | Real-time Indian motorcycle database lookup & safe range algorithm | Same local motorcycle specs db (Royal Enfield, KTM, Triumph, etc.) |
-| **3. Route & Stops** | Leaflet map with stop pins (Fuel, Food, Restroom, Repair) + weather | Live OpenRouteService geometry + Live Open-Meteo weather | Pre-cached Bangalore–Sakleshpur route, real Nominatim reverse geocode |
+| **3. Route & Stops** | Leaflet map with stop pins (Fuel, Food, Restroom, Repair) + weather | Live OSRM car routing (full polyline retained) + Overpass API polyline queries + Nominatim geocoding with ambiguity picker + Open-Meteo weather | Pre-recorded 100% real OSM routes & Overpass places (`sample_data/recorded/*.json`), instant zero-key offline execution |
 | **4. Approvals Gate** | Approval gate: no write action runs without captain approval | Live interceptor: blocks writes until captain clicks Approve or Rejects | Same live approval state machine; produces live `.ics` and broadcast |
 | **5. Action Log** | Append-only audit log in the app with filtering and execution details | Live SQLite audit logging of every MCP tool call, input, and response | Same live SQLite append-only audit trail in the app |
 | **6. Expenses & UPI** | Group expense ledger, greedy cashflow minimization ($O(N)$ transfers) | Live computation + generates authentic `upi://pay` deep links | Live computation + generates authentic `upi://pay` deep links |
@@ -153,10 +153,30 @@ $$\text{Safe Leg Limit} = 0.8 \times \min_{r \in \text{Confirmed}} (\text{Tank L
 - Places a mandatory fuel stop at **Hassan Bypass (182.4 km)** before entering the ghats.
 - If any station gap exceeds the safe range, it triggers a **CRITICAL WARNING** in the plan.
 
-### 2. Overpass Places & Restroom Coverage (Every 60 km or less)
-- Places breakfast stops in typical morning meal windows (7:00 am – 8:30 am, matching chat food preferences like Swathi Delicacy Thatte Idli).
-- Enforces comfort stops so no highway stretch exceeds 60 km without a clean restroom.
-- Maps authorized motorcycle service centers and tire puncture shops as safety nets.
+### 2. Real Places via OpenStreetMap (Overpass API) & Honest Gap Reporting
+- **Corridor Search via Polyline Chunking**: The full route geometry is simplified using Douglas-Peucker (~150 points) and partitioned into ~60 km distance chunks. Each chunk is queried against the Overpass API using `around:1500m` for fuel stations, restaurants, and toilets, and `around:2500m` for motorcycle and tyre repair shops.
+- **Resilient Multi-Mirror Overpass Engine**: Queries run with backoff across primary and fallback Overpass mirrors (`overpass.openstreetmap.fr`, `overpass-api.de`, `overpass.kumi.systems`, `overpass-api.open-access.nl`) with an internal SQLite request cache (`overpass_cache`) keyed by query hash for instant repeat responses.
+- **Snapping & Spatial Joins**: Every candidate stop is snapped to the route (`snap_to_route`), dropping any entity farther than 2.0 km lateral offset from the driving line. Food and restroom amenities for fuel stations are evaluated via a 300-meter spatial join against real mapped points.
+- **Smart Fuel & Food Selection**:
+  - Fuel stops are assigned using `plan_fuel_stops()` prioritizing major verified Indian fuel networks (Indian Oil / IOCL, BPCL, HPCL, Shell, Nayara, Jio-bp) with on-site amenities. If the total trip is shorter than the group's safe range, an optional top-up station near the midpoint is included and labeled `is_optional`.
+  - Food stops are selected within time-of-day meal windows (Breakfast 7:30–9:30, Lunch 12:30–14:30, Evening Tea 16:00–17:30) calculated from cumulative driving duration, matching rider dietary preferences extracted from the chat (e.g., veg, idli, dosa, biryani).
+- **Honest Data Limits & Gap Warnings**:
+  - OpenStreetMap coverage along Indian highways varies by state and district — rural sections often lack mapped public restrooms or puncture shops.
+  - **Zero Fabrication**: The copilot *never* invents synthetic stops, fake restaurant names, or fictitious amenities. If no mapped toilet exists for a stretch longer than 60 km, a high-visibility warning banner is flagged in the plan (`"Restroom gap > 60 km between km X and Y"`). Similarly, stretches lacking mapped repair shops display an honest advisory banner.
+  - Every stop card displays its authentic data source (`Live OSM`, `Cached OSM`, or `Estimated`) and an "Open in Maps" link directly targeting its exact coordinates.
+
+### 3. Pre-Recorded Route Corridors & Recorder CLI
+For offline hackathon demos, high-fidelity real OSM routes and Overpass places are pre-recorded into `sample_data/recorded/<slug>.json`:
+- **Bengaluru ➡️ Mysuru** (NH 275 expressway & service road corridor)
+- **Bengaluru ➡️ Sakleshpur** (NH 75 Western Ghats ascent corridor)
+- **Bengaluru ➡️ Hassan** (NH 75 agrarian plateau corridor)
+- **Pune ➡️ Mahabaleshwar** (NH 48 Wai Ghats ascent corridor)
+
+To record any arbitrary new Indian highway corridor into the cache:
+```bash
+python scripts/record_route.py "Bengaluru, Karnataka" "Ooty, Tamil Nadu"
+```
+The script resolves geocodes, fetches live OSRM car geometry, extracts all Overpass amenities, and writes the JSON cache ready for instant zero-key offline use.
 
 ### 3. Open-Meteo Weather Verdict
 - Evaluates rain probability, wind speeds, and WMO thunderstorm codes in plain text:
@@ -243,11 +263,16 @@ backend/tests/test_approval_gate.py::test_approval_gate_rejection PASSED
 backend/tests/test_chat_parser.py::test_whatsapp_parser_sample_chat PASSED
 backend/tests/test_fuel_stop_algorithm.py::test_fuel_stop_algorithm_safe_range PASSED
 backend/tests/test_fuel_stop_algorithm.py::test_fuel_stop_algorithm_flags_gap_warning PASSED
+backend/tests/test_places_and_routing.py::test_snap_to_route_and_cumulative_distances PASSED
+backend/tests/test_places_and_routing.py::test_corridor_filtering_drops_far_places PASSED
+backend/tests/test_places_and_routing.py::test_geocoder_unknown_place_raises_error PASSED
+backend/tests/test_places_and_routing.py::test_fuel_planning_optional_topup_short_ride PASSED
+backend/tests/test_places_and_routing.py::test_no_fake_stop_names_in_output PASSED
 backend/tests/test_settlement_minimisation.py::test_settlement_balances_sum_to_zero_and_minimal PASSED
 backend/tests/test_weather_verdict.py::test_weather_verdict_go PASSED
 backend/tests/test_weather_verdict.py::test_weather_verdict_caution PASSED
 backend/tests/test_weather_verdict.py::test_weather_verdict_no_go PASSED
-======================= 9 passed in 2.9s =======================
+======================= 14 passed in 2.8s =======================
 ```
 
 ---

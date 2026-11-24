@@ -16,7 +16,14 @@ from backend.app.agent.approval_gate import approve_action, reject_action
 from backend.app.services.bikes_data import get_all_bikes, lookup_bike
 from backend.app.services.speech_service import synthesize_speech_elevenlabs, get_briefing_text
 from backend.mcp_servers.bill_split_server import compute_minimal_settlements
-from backend.mcp_servers.stop_finder_server import geocode_place, get_routing_osrm_or_ors, synthesize_dynamic_stops
+from backend.mcp_servers.stop_finder_server import (
+    geocode_place,
+    get_routing_osrm_or_ors,
+    find_stops_and_route,
+    get_geocode_candidates,
+    GeocodeError,
+    RoutingError
+)
 from backend.mcp_servers.weather_server import get_route_weather
 
 router = APIRouter()
@@ -66,16 +73,29 @@ def get_sample_chat():
 @router.post("/chat/parse")
 def parse_chat_and_plan(req: ChatParseWithRouteRequest, db: Session = Depends(get_db)):
     """Parse chat, initiate ride, and generate route & stops."""
-    orchestrator = RideCaptainOrchestrator(db)
-    result = orchestrator.plan_ride_from_chat(
-        chat_text=req.chat_text,
-        custom_destination=req.custom_destination,
-        custom_start=req.custom_start,
-        custom_date=req.custom_date,
-        custom_time=req.custom_time,
-        demo_mode=req.demo_mode
-    )
-    return result
+    try:
+        orchestrator = RideCaptainOrchestrator(db)
+        result = orchestrator.plan_ride_from_chat(
+            chat_text=req.chat_text,
+            custom_destination=req.custom_destination,
+            custom_start=req.custom_start,
+            custom_date=req.custom_date,
+            custom_time=req.custom_time,
+            demo_mode=req.demo_mode
+        )
+        return result
+    except (GeocodeError, RoutingError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/locations/candidates")
+def get_candidates(q: str = Query(..., min_length=1)):
+    """Return up to 5 geocode candidates for a place query."""
+    try:
+        return get_geocode_candidates(q, limit=5)
+    except GeocodeError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 CURATED_SUGGESTIONS = [
     {"name": "Nelamangala Toll Plaza, Bangalore", "description": "Bangalore Departure Hub, Karnataka"},
@@ -180,18 +200,27 @@ def suggest_locations(q: str = Query("", min_length=1)):
 @router.post("/route/preview")
 def preview_route(req: RoutePreviewRequest):
     """Live geocode and route preview for any start/destination pair."""
-    s_lat, s_lng, s_name = geocode_place(req.start_location)
-    d_lat, d_lng, d_name = geocode_place(req.destination)
+    try:
+        s_lat, s_lng, s_name = geocode_place(req.start_location)
+        d_lat, d_lng, d_name = geocode_place(req.destination)
+    except GeocodeError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
-    route_info = get_routing_osrm_or_ors(s_lat, s_lng, d_lat, d_lng)
-    stops_info = synthesize_dynamic_stops(
-        polyline=route_info["polyline"],
-        total_distance_km=route_info["total_distance_km"],
-        start_name=s_name,
-        dest_name=d_name,
-        start_time=req.start_time,
-        smallest_tank_range_km=req.smallest_tank_range_km
-    )
+    try:
+        stops_json = find_stops_and_route(
+            ride_id="preview",
+            smallest_tank_range_km=req.smallest_tank_range_km,
+            start_time=req.start_time,
+            food_preferences_json="[]",
+            start_location=req.start_location,
+            destination=req.destination,
+            demo_mode=False
+        )
+        stops_info = json.loads(stops_json)
+    except (GeocodeError, RoutingError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Routing error: {e}")
 
     checkpoints_for_weather = [
         {"name": t["name"], "lat": t["lat"], "lng": t["lng"], "eta": t.get("eta", "")}
@@ -205,36 +234,43 @@ def preview_route(req: RoutePreviewRequest):
     weather_data = json.loads(weather_str)
 
     return {
-        "start_location": s_name,
-        "start_lat": s_lat,
-        "start_lng": s_lng,
-        "destination": d_name,
-        "dest_lat": d_lat,
-        "dest_lng": d_lng,
-        "total_distance_km": route_info["total_distance_km"],
-        "estimated_duration_minutes": route_info["estimated_duration_minutes"],
-        "polyline": route_info["polyline"],
-        "routing_provider": "Live Highway Engine",
+        "start_location": stops_info["start_location"],
+        "start_lat": stops_info["start_lat"],
+        "start_lng": stops_info["start_lng"],
+        "destination": stops_info["destination"],
+        "dest_lat": stops_info["dest_lat"],
+        "dest_lng": stops_info["dest_lng"],
+        "total_distance_km": stops_info["total_distance_km"],
+        "estimated_duration_minutes": stops_info["estimated_duration_minutes"],
+        "polyline": stops_info["polyline"],
+        "routing_provider": stops_info.get("routing_provider", "car routing (demo server)"),
         "fuel_plan": stops_info["fuel_plan"],
         "timeline": stops_info["timeline"],
         "repair_shops": stops_info["repair_shops"],
-        "weather": weather_data
+        "warnings": stops_info.get("warnings", []),
+        "weather": weather_data,
+        "data_source": stops_info.get("data_source", "osm")
     }
 
 @router.post("/rides/{ride_id}/update-route")
 def update_ride_route(ride_id: str, req: RouteUpdateRequest, db: Session = Depends(get_db)):
     """Update ride's end destination or start location and recalculate everything."""
-    orchestrator = RideCaptainOrchestrator(db)
-    result = orchestrator.update_route(
-        ride_id=ride_id,
-        start_location=req.start_location,
-        destination=req.destination,
-        ride_date=req.ride_date,
-        start_time=req.start_time
-    )
-    if result.get("status") == "error":
-        raise HTTPException(status_code=400, detail=result.get("message"))
-    return result
+    try:
+        orchestrator = RideCaptainOrchestrator(db)
+        result = orchestrator.update_route(
+            ride_id=ride_id,
+            start_location=req.start_location,
+            destination=req.destination,
+            ride_date=req.ride_date,
+            start_time=req.start_time
+        )
+        if result.get("status") == "error":
+            raise HTTPException(status_code=422, detail=result.get("message"))
+        return result
+    except (GeocodeError, RoutingError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 @router.get("/rides")
 def list_rides(db: Session = Depends(get_db)):
@@ -311,7 +347,13 @@ def get_ride_details(ride_id: str, db: Session = Depends(get_db)):
                 "eta": s.eta,
                 "duration_minutes": s.duration_minutes,
                 "notes": s.notes,
-                "order_index": s.order_index
+                "order_index": s.order_index,
+                "source": getattr(s, "source", "osm") or "osm",
+                "brand": getattr(s, "brand", "") or "",
+                "offset_km": getattr(s, "offset_km", 0.0) or 0.0,
+                "maps_url": getattr(s, "maps_url", "") or f"https://www.google.com/maps/search/?api=1&query={s.lat},{s.lng}",
+                "is_optional": getattr(s, "is_optional", False) or False,
+                "tags": json.loads(getattr(s, "tags_json", "{}") or "{}")
             }
             for s in sorted(ride.stops, key=lambda x: x.order_index)
         ],

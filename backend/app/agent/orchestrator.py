@@ -109,7 +109,8 @@ class RideCaptainOrchestrator:
             start_time=ride.start_time,
             food_preferences_json=json.dumps(parsed.get("food_preferences", [])),
             start_location=final_start,
-            destination=final_dest
+            destination=final_dest,
+            demo_mode=demo_mode
         )
         stops_data = json.loads(stops_str)
 
@@ -127,7 +128,7 @@ class RideCaptainOrchestrator:
             ride_id=ride.id,
             tool_name="stop_finder.find_stops_and_route",
             input_summary=f"{final_start} to {final_dest} ({ride.total_distance_km} km), Safe Range Cap: {stops_data['fuel_plan']['safe_range_km']} km",
-            output_summary=f"Planned {len(stops_data['timeline'])} timeline stops via {stops_data.get('routing_provider', 'OSRM')}.",
+            output_summary=f"Planned {len(stops_data['timeline'])} timeline stops via {stops_data.get('routing_provider', 'car routing (demo server)')}.",
             approved_by="AUTO_READ",
             status="SUCCESS"
         )
@@ -197,7 +198,13 @@ class RideCaptainOrchestrator:
                 eta=item.get("eta", ""),
                 duration_minutes=int(item.get("duration_minutes", 15)),
                 notes=item.get("notes", ""),
-                order_index=idx
+                order_index=idx,
+                source=item.get("source", "osm"),
+                brand=item.get("brand", ""),
+                offset_km=float(item.get("offset_km", 0.0)),
+                tags_json=json.dumps(item.get("tags", {})),
+                maps_url=item.get("maps_url", ""),
+                is_optional=bool(item.get("is_optional", False))
             )
             self.db.add(stop)
         self.db.commit()
@@ -271,7 +278,13 @@ class RideCaptainOrchestrator:
                 eta=item.get("eta", ""),
                 duration_minutes=int(item.get("duration_minutes", 15)),
                 notes=item.get("notes", ""),
-                order_index=idx
+                order_index=idx,
+                source=item.get("source", "osm"),
+                brand=item.get("brand", ""),
+                offset_km=float(item.get("offset_km", 0.0)),
+                tags_json=json.dumps(item.get("tags", {})),
+                maps_url=item.get("maps_url", ""),
+                is_optional=bool(item.get("is_optional", False))
             )
             self.db.add(stop)
 

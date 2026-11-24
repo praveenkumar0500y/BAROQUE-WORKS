@@ -31,7 +31,20 @@ export async function parseChatAndPlan(
       demo_mode: options?.demoMode ?? false,
     }),
   });
-  if (!res.ok) throw new Error('Failed to parse chat and plan ride');
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Failed to parse chat and plan ride');
+  }
+  return res.json();
+}
+
+export async function fetchGeocodeCandidates(query: string): Promise<Array<{ name: string; display_name: string; lat: number; lon: number }>> {
+  if (!query.trim()) return [];
+  const res = await fetch(`${API_BASE}/locations/candidates?q=${encodeURIComponent(query.trim())}`);
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `Could not find '${query.trim()}'. Try a more specific name.`);
+  }
   return res.json();
 }
 
@@ -58,7 +71,10 @@ export async function previewRoute(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to calculate route preview');
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Failed to calculate route preview');
+  }
   return res.json();
 }
 
@@ -73,7 +89,10 @@ export async function updateRideRoute(rideId: string, payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to update ride route');
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || 'Failed to update ride route');
+  }
   return res.json();
 }
 

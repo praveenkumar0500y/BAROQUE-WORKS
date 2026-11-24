@@ -14,10 +14,13 @@ import {
   Wrench,
   CheckCircle2,
   Crosshair,
-  Sparkles
+  Sparkles,
+  ExternalLink,
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 import type { RideDetails } from '../types';
-import { previewRoute, updateRideRoute, fetchLocationSuggestions } from '../api';
+import { previewRoute, updateRideRoute, fetchLocationSuggestions, fetchGeocodeCandidates } from '../api';
 
 interface RouteSetupTabProps {
   ride: RideDetails | null;
@@ -69,6 +72,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   const [calculating, setCalculating] = useState(false);
   const [updatingRide, setUpdatingRide] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Candidate picker state
+  const [candidatesList, setCandidatesList] = useState<Array<{ name: string; display_name: string; lat: number; lon: number }>>([]);
+  const [candidateTarget, setCandidateTarget] = useState<'start' | 'dest' | null>(null);
+  const [searchingCandidates, setSearchingCandidates] = useState(false);
 
   // Leaflet Map References
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -283,6 +292,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     if (!start.trim() || !dest.trim()) return;
     try {
       setCalculating(true);
+      setErrorMessage(null);
       setStatusMessage('Calculating real-time highway route...');
       const data = await previewRoute({
         start_location: start.trim(),
@@ -294,13 +304,44 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
       setRouteData(data);
       setSelectedStopIndex(null);
-      setStatusMessage(`Route calculated: ${data.total_distance_km} km (${Math.floor(data.estimated_duration_minutes / 60)}h ${data.estimated_duration_minutes % 60}m)`);
+      setStatusMessage(`Route calculated: ${data.total_distance_km} km via ${data.routing_provider || 'car routing (demo server)'}`);
     } catch (err: any) {
-      setStatusMessage(`Route calculation error: ${err.message}`);
+      setErrorMessage(err.message || 'Routing failed');
+      setStatusMessage(`Error: ${err.message}`);
     } finally {
       setCalculating(false);
     }
   }, [startTime, rideDate]);
+
+  const handleOpenCandidatePicker = async (target: 'start' | 'dest') => {
+    const q = target === 'start' ? startLocation : destination;
+    if (!q.trim()) return;
+    try {
+      setSearchingCandidates(true);
+      setErrorMessage(null);
+      const candidates = await fetchGeocodeCandidates(q.trim());
+      setCandidatesList(candidates);
+      setCandidateTarget(target);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Geocoding failed');
+    } finally {
+      setSearchingCandidates(false);
+    }
+  };
+
+  const handleSelectCandidate = (cand: { name: string; display_name: string; lat: number; lon: number }) => {
+    if (candidateTarget === 'start') {
+      hasUserEditedRef.current = true;
+      setStartLocation(cand.display_name);
+      setCandidateTarget(null);
+      handleCalculateRouteWith(cand.display_name, destination);
+    } else if (candidateTarget === 'dest') {
+      hasUserEditedRef.current = true;
+      setDestination(cand.display_name);
+      setCandidateTarget(null);
+      handleCalculateRouteWith(startLocation, cand.display_name);
+    }
+  };
 
   // Initial calculation on component mount
   useEffect(() => {
@@ -461,6 +502,50 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </div>
         </div>
 
+        {/* Location or Routing Error Banner */}
+        {errorMessage && (
+          <div className="bg-rose-950/40 border border-rose-500/50 rounded-xl p-3 flex items-start justify-between gap-2.5 text-xs text-rose-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-rose-300">Location / Routing Error</strong>
+                <span>{errorMessage}</span>
+              </div>
+            </div>
+            <button onClick={() => setErrorMessage(null)} className="text-rose-400 hover:text-white font-bold text-sm px-1">&times;</button>
+          </div>
+        )}
+
+        {/* Candidate Picker Modal/Drawer */}
+        {candidateTarget && candidatesList.length > 0 && (
+          <div className="bg-slate-950 border border-sky-500/50 rounded-xl p-3 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-sky-300">
+                Pick Exact Mapped Location for {candidateTarget === 'start' ? 'Start (A)' : 'Destination (B)'}:
+              </span>
+              <button onClick={() => setCandidateTarget(null)} className="text-slate-400 hover:text-white text-xs">
+                &times; Close
+              </button>
+            </div>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              {candidatesList.map((cand, cidx) => (
+                <button
+                  key={cidx}
+                  type="button"
+                  onClick={() => handleSelectCandidate(cand)}
+                  className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs text-slate-200 border border-slate-800 hover:border-sky-500/50 transition flex items-start gap-2"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white block">{cand.name}</span>
+                    <span className="text-[10px] text-slate-400 leading-tight block">{cand.display_name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Start & Destination Inputs with Autocomplete Dropdowns */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 text-xs">
           {/* Start Point Input with Dropdown Suggestions */}
@@ -472,9 +557,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 </span>
                 <span>Start Location</span>
               </div>
-              {showStartDropdown && startSuggestions.length > 0 && (
-                <span className="text-[10px] text-sky-400 font-mono">{startSuggestions.length} suggestions</span>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenCandidatePicker('start')}
+                  className="text-[10px] text-sky-400 hover:text-sky-300 font-medium flex items-center gap-0.5"
+                >
+                  <Search className="w-2.5 h-2.5" />
+                  <span>{searchingCandidates && candidateTarget === 'start' ? 'Searching...' : 'Candidate Picker'}</span>
+                </button>
+                {showStartDropdown && startSuggestions.length > 0 && (
+                  <span className="text-[10px] text-sky-400 font-mono">{startSuggestions.length} suggestions</span>
+                )}
+              </div>
             </label>
             <div className="relative">
               <input
@@ -541,9 +636,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 </span>
                 <span>Ride End Goal (Destination)</span>
               </div>
-              {showDestDropdown && destSuggestions.length > 0 && (
-                <span className="text-[10px] text-sky-400 font-mono">{destSuggestions.length} suggestions</span>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenCandidatePicker('dest')}
+                  className="text-[10px] text-sky-400 hover:text-sky-300 font-medium flex items-center gap-0.5"
+                >
+                  <Search className="w-2.5 h-2.5" />
+                  <span>{searchingCandidates && candidateTarget === 'dest' ? 'Searching...' : 'Candidate Picker'}</span>
+                </button>
+                {showDestDropdown && destSuggestions.length > 0 && (
+                  <span className="text-[10px] text-sky-400 font-mono">{destSuggestions.length} suggestions</span>
+                )}
+              </div>
             </label>
             <div className="relative">
               <input
@@ -629,6 +734,21 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             />
           </div>
         </div>
+
+        {/* Route Safety Warnings Banner */}
+        {routeData?.warnings && routeData.warnings.length > 0 && (
+          <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 text-xs text-amber-200 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-amber-400">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span>Route Safety &amp; Coverage Warnings</span>
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-300">
+              {routeData.warnings.map((w: string, widx: number) => (
+                <li key={widx}>{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Actions Row */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
@@ -810,6 +930,21 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                       }`}>
                         #{stop.order || idx + 1} {stopType}
                       </span>
+                      {stop.source === 'osm' && (
+                        <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                          Live OSM
+                        </span>
+                      )}
+                      {stop.source === 'cached' && (
+                        <span className="text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                          Cached OSM
+                        </span>
+                      )}
+                      {stop.is_optional && (
+                        <span className="text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                          Optional
+                        </span>
+                      )}
                       {isSelected && (
                         <span className="text-[10px] font-bold text-sky-400 flex items-center gap-0.5">
                           <Crosshair className="w-3 h-3" />
@@ -824,6 +959,10 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                     <h4 className="text-white font-semibold text-xs leading-snug">{stop.name}</h4>
                     <span className="text-[11px] text-slate-400 font-mono shrink-0 ml-2">{km} km</span>
                   </div>
+
+                  {stop.brand && (
+                    <div className="text-[10px] text-sky-400 font-medium">Brand: {stop.brand}</div>
+                  )}
 
                   {stop.notes && (
                     <p className="text-[11px] text-slate-400 leading-snug">{stop.notes}</p>
@@ -842,6 +981,20 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                       ))}
                     </div>
                   )}
+
+                  <div className="text-[10px] text-slate-500 pt-1 flex items-center justify-between border-t border-slate-800/60 mt-1">
+                    <span>Offset: {stop.offset_km !== undefined ? `${stop.offset_km} km` : 'on route'}</span>
+                    <a
+                      href={stop.maps_url || `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-sky-400 hover:text-sky-300 flex items-center gap-0.5 font-semibold"
+                    >
+                      <span>Open in Maps</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
                 </div>
               );
             })}

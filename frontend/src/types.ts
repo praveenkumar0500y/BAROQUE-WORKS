@@ -29,6 +29,12 @@ export interface RideStop {
   duration_minutes: number;
   notes: string;
   order_index: number;
+  source?: 'osm' | 'cached' | 'estimated';
+  brand?: string;
+  offset_km?: number;
+  maps_url?: string;
+  is_optional?: boolean;
+  tags?: Record<string, any>;
 }
 
 export interface PendingAction {

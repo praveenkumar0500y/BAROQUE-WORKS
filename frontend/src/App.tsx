@@ -57,7 +57,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('route');
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try {
-      const saved = localStorage.getItem('motoroute_theme');
+      const saved = localStorage.getItem('ridesync_theme') || localStorage.getItem('motoroute_theme');
       if (saved === 'dark' || saved === 'light') return saved;
     } catch {
       // Ignore storage access errors
@@ -76,7 +76,7 @@ export function App() {
     document.documentElement.setAttribute('data-theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
     try {
-      localStorage.setItem('motoroute_theme', theme);
+      localStorage.setItem('ridesync_theme', theme);
     } catch {
       // Ignore storage access errors
     }

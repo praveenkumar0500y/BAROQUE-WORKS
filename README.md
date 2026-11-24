@@ -1,4 +1,4 @@
-# 🏍️ Ride Captain's Copilot
+# 🏍️ RIDESYNC — Ride Captain's Copilot
 
 > **An MCP-powered agent that turns a motorcycle group's messy WhatsApp chat into an approved, safe ride plan: routed, fuelled, fed, and cost-split — with the ride captain always in control.**
 
@@ -21,7 +21,7 @@ Organizing a weekend motorcycle group ride is exhausting:
 2. **The Bottleneck Bike Danger:** Generic route planners treat all vehicles equally, ignoring each motorcycle's tank range. If one rider runs an **Interceptor 650** with a 13.7L tank while another rides an **XPulse 200**, planning fuel stops based on averages leaves someone stranded in a remote ghat section with no network.
 3. **Loss of Control:** Typical AI agents act like black boxes — they book, email, or broadcast without human verification. Ride captains need **uncompromising control** over group announcements, route changes, and expense settlements.
 
-**Ride Captain's Copilot** solves this by uniting **6 discrete FastMCP servers** behind an **approval gate: no write action runs without captain approval** and an **append-only audit log in the app**.
+**RIDESYNC (Ride Captain's Copilot)** solves this by uniting **6 discrete FastMCP servers** behind an **approval gate: no write action runs without captain approval** and an **append-only audit log in the app**.
 
 ---
 

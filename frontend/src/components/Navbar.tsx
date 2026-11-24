@@ -39,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-2.5 font-display text-lg font-semibold tracking-tight text-[var(--text-primary)] hover:text-[var(--accent)] whitespace-nowrap shrink-0 cursor-pointer group focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] rounded-[6px]"
         >
           <MotoRouteLogo className="w-7 h-7 transition-transform duration-200 group-hover:scale-105" />
-          <span>MotoRoute</span>
+          <span className="tracking-wide">RIDESYNC</span>
         </button>
 
         {/* Zone 2: 5 Primary Navigation Links */}

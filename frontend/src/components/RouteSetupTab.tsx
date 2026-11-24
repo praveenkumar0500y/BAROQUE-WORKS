@@ -45,7 +45,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   onOpenChatModal,
 }) => {
   const [todayStr] = useState(() => new Date().toISOString().slice(0, 10));
-  const [subTab, setSubTab] = useState<RouteSubTab>('setup');
+  const [subTab, setSubTab] = useState<RouteSubTab>(() => (ride ? 'map' : 'setup'));
 
   const [startLocation, setStartLocation] = useState(ride?.start_location || '');
   const [destination, setDestination] = useState(ride?.destination || '');
@@ -92,6 +92,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
       setStartTime(ride.start_time);
       setRouteData(null);
       setSelectedStopIndex(null);
+      setSubTab('map');
     } else if (!ride && lastSyncedRideIdRef.current !== null) {
       lastSyncedRideIdRef.current = null;
       setStartLocation('');
@@ -125,21 +126,21 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         attributionControl: false,
       }).setView([13.0, 76.5], 7);
 
-      const tileUrl =
-        theme === 'dark'
-          ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-          : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
       tileLayerRef.current = L.tileLayer(tileUrl, {
-        attribution: '',
-        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: ['a', 'b', 'c'],
         maxZoom: 19,
       }).addTo(map);
 
       routeLayersRef.current = L.featureGroup().addTo(map);
       mapInstanceRef.current = map;
+      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => map.invalidateSize(), 300);
     } else {
       setTimeout(() => mapInstanceRef.current?.invalidateSize(), 60);
+      setTimeout(() => mapInstanceRef.current?.invalidateSize(), 200);
     }
 
     return () => {
@@ -150,7 +151,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         routeLayersRef.current = null;
       }
     };
-  }, [subTab, theme]);
+  }, [subTab]);
 
   useEffect(() => {
     if (subTab !== 'map') return;
@@ -335,6 +336,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
         setRouteData(data);
         setSelectedStopIndex(null);
+        setSubTab('map');
         setStatusMessage(
           `Preview ready · ${data.total_distance_km} km (${Math.floor(
             data.estimated_duration_minutes / 60
@@ -368,6 +370,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         });
         setRouteData(null);
         onRefreshRide();
+        setSubTab('map');
         setStatusMessage('Ride route and stops updated.');
       } else {
         setStatusMessage('Creating ride plan...');
@@ -379,6 +382,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         });
         setRouteData(null);
         onRideLoaded(created.ride_id);
+        setSubTab('map');
         setStatusMessage(`Ride created: ${created.title}`);
       }
     } catch (err) {
@@ -460,12 +464,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
   };
 
   const subTabs: Array<{ id: RouteSubTab; label: string; icon: React.ReactNode }> = [
+    { id: 'map', label: 'Interactive Map', icon: <MapIcon className="w-4 h-4" strokeWidth={1.5} /> },
     {
       id: 'setup',
       label: 'Route & Weather',
       icon: <SlidersHorizontal className="w-4 h-4" strokeWidth={1.5} />,
     },
-    { id: 'map', label: 'Map View', icon: <MapIcon className="w-4 h-4" strokeWidth={1.5} /> },
     {
       id: 'stops',
       label: `Stops & Fuel (${displayStops.length})`,
@@ -519,7 +523,11 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </div>
         </div>
 
-        <div className="lg:col-span-5 relative aspect-[16/9] lg:aspect-auto lg:min-h-[180px] rounded-[8px] overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-inset)] group">
+        <div
+          onClick={() => setSubTab('map')}
+          className="lg:col-span-5 relative aspect-[16/9] lg:aspect-auto lg:min-h-[180px] rounded-[8px] overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-inset)] group cursor-pointer hover:border-[var(--accent)] transition-colors"
+          title="Click to view interactive highway map"
+        >
           <img
             src={RIDE_PHOTOS.mountainCurve}
             alt="Two motorcyclists carving a misty green mountain highway curve"
@@ -527,10 +535,13 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#111110]/85 via-[#111110]/30 to-transparent flex flex-col justify-end p-4">
-            <span className="font-mono text-[11px] uppercase tracking-wider text-[#FAF9F6]/80">
-              Active Corridor
-            </span>
-            <span className="text-sm font-semibold text-[#FAF9F6] truncate">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-[#FAF9F6]/80 flex items-center gap-1.5">
+                <MapIcon className="w-3.5 h-3.5 text-[var(--accent)]" />
+                <span>Active Corridor · Open Map &rarr;</span>
+              </span>
+            </div>
+            <span className="text-sm font-semibold text-[#FAF9F6] truncate mt-0.5">
               {startLocation && destination
                 ? `${startLocation.split(',')[0]} to ${destination.split(',')[0]}`
                 : 'Select a highway preset or custom route'}
@@ -980,34 +991,32 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             </div>
           </div>
 
-          {!hasPolyline ? (
-            <div className="h-[460px] rounded-[6px] border border-dashed border-[var(--border-subtle)] bg-[var(--bg-canvas)] flex flex-col items-center justify-center p-8 text-center space-y-3">
-              <MapPin className="w-6 h-6 text-[var(--accent)]" strokeWidth={1.5} />
-              <h3 className="font-display text-lg font-semibold text-[var(--text-primary)]">
-                No route plotted yet
-              </h3>
-              <p className="text-sm text-[var(--text-muted)] max-w-[46ch]">
-                Enter your starting city and destination in Route &amp; Weather to generate the
-                highway corridor and fuel stops here.
-              </p>
-              <button
-                type="button"
-                onClick={() => setSubTab('setup')}
-                className="px-4 py-2 bg-[var(--accent)] text-[var(--accent-ink)] text-sm font-medium rounded-[6px] cursor-pointer"
-              >
-                Go to Route Setup
-              </button>
-            </div>
-          ) : (
-            <div className="h-[540px] w-full rounded-[6px] overflow-hidden border border-[var(--border-subtle)] relative">
-              <div ref={mapContainerRef} className="w-full h-full" />
-              {calculating && (
-                <div className="absolute top-3 right-3 z-[1000] bg-[var(--bg-elevated)] border border-[var(--border-strong)] text-[var(--text-primary)] px-3 py-1.5 rounded-[6px] text-xs font-medium">
-                  Updating route...
-                </div>
-              )}
-            </div>
-          )}
+          <div className="h-[540px] w-full rounded-[6px] overflow-hidden border border-[var(--border-subtle)] relative">
+            <div ref={mapContainerRef} className="w-full h-full" />
+            {!hasPolyline && (
+              <div className="absolute inset-0 bg-[var(--bg-canvas)]/75 backdrop-blur-sm z-[1000] flex flex-col items-center justify-center p-8 text-center space-y-3">
+                <MapPin className="w-8 h-8 text-[var(--accent)]" strokeWidth={1.5} />
+                <h3 className="font-display text-lg font-semibold text-[var(--text-primary)]">
+                  Interactive OpenStreetMap Ready
+                </h3>
+                <p className="text-sm text-[var(--text-muted)] max-w-[46ch]">
+                  Select a preset corridor or enter departure &amp; destination in Route &amp; Weather to plot the live corridor and fuel stops.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSubTab('setup')}
+                  className="px-4 py-2 bg-[var(--accent)] text-[var(--accent-ink)] text-sm font-medium rounded-[6px] cursor-pointer"
+                >
+                  Configure Route
+                </button>
+              </div>
+            )}
+            {calculating && (
+              <div className="absolute top-3 right-3 z-[1001] bg-[var(--bg-elevated)] border border-[var(--border-strong)] text-[var(--text-primary)] px-3 py-1.5 rounded-[6px] text-xs font-medium shadow-md">
+                Updating corridor...
+              </div>
+            )}
+          </div>
         </section>
       )}
 

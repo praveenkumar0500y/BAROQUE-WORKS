@@ -46,7 +46,7 @@ const CHAPTERS: DemoChapter[] = [
     title: '1. Plot Your Highway Corridor',
     subtitle: 'Enter departure & destination or pick a corridor preset to check live Open-Meteo weather and highway curves.',
     narration:
-      'Step one: Pick a preset or enter your departure and destination city. MotoRoute maps the OpenStreetMap highway polyline and checks real-time weather along the route.',
+      'Step one: Pick a preset or enter your departure and destination city. RIDESYNC maps the OpenStreetMap highway polyline and checks real-time weather along the route.',
     ctaLabel: 'Open Route & Map',
     colorVar: 'var(--accent)',
     tintVar: 'var(--accent-tint)',
@@ -59,7 +59,7 @@ const CHAPTERS: DemoChapter[] = [
     title: '2. Match Pack Tank Ranges',
     subtitle: 'Add riders and bikes manually or import a group chat. The bike with the shortest fuel range sets an 80% safe leg limit.',
     narration:
-      'Step two: Add riders and motorcycles or import your group chat. MotoRoute automatically spots the smallest tank range and caps every leg at eighty percent.',
+      'Step two: Add riders and motorcycles or import your group chat. RIDESYNC automatically spots the smallest tank range and caps every leg at eighty percent.',
     ctaLabel: 'Open Riders & Bikes',
     colorVar: 'var(--alpine)',
     tintVar: 'var(--alpine-tint)',
@@ -98,7 +98,7 @@ const CHAPTERS: DemoChapter[] = [
     title: '5. Split Group Bills & Pay via UPI',
     subtitle: 'Log breakfast, fuel, or toll bills during the ride. Transfers are minimized automatically into direct UPI payment links.',
     narration:
-      'Step five: Log shared fuel and meal bills under Split Bills. MotoRoute calculates the minimum transfers needed and generates ready UPI payment links.',
+      'Step five: Log shared fuel and meal bills under Split Bills. RIDESYNC calculates the minimum transfers needed and generates ready UPI payment links.',
     ctaLabel: 'Open Split Bills',
     colorVar: 'var(--accent)',
     tintVar: 'var(--accent-tint)',
@@ -194,7 +194,7 @@ export const DemoWalkthroughModal: React.FC<DemoWalkthroughModalProps> = ({
                 id="demo-modal-title"
                 className="font-display text-base sm:text-lg font-semibold text-[var(--text-primary)]"
               >
-                How MotoRoute Works · Interactive Walkthrough
+                How RIDESYNC Works · Interactive Walkthrough
               </h2>
               <p className="text-xs text-[var(--text-muted)]">
                 5-step interactive guide — click any chapter or press play

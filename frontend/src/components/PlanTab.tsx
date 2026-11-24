@@ -19,8 +19,10 @@ export const PlanTab: React.FC<PlanTabProps> = ({ ride, setActiveTab }) => {
 
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current).setView(defaultCenter, 9);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: ['a', 'b', 'c'],
+        maxZoom: 19,
       }).addTo(map);
       mapInstanceRef.current = map;
     }

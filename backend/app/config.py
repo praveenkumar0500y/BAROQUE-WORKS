@@ -8,7 +8,7 @@ ENV_FILE = ROOT_DIR / ".env"
 load_dotenv(ENV_FILE)
 
 class Settings(BaseModel):
-    PROJECT_NAME: str = "Ride Captain's Copilot"
+    PROJECT_NAME: str = "RIDESYNC - Ride Captain's Copilot"
     VERSION: str = "1.1.0"
     API_PREFIX: str = "/api"
     

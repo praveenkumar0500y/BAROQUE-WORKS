@@ -1,22 +1,11 @@
 import React, { useState } from 'react';
-import {
-  X,
-  FileText,
-  RotateCw,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
-  Upload,
-  MessageSquare,
-  Bike
-} from 'lucide-react';
-import { fetchSampleChat, parseChatAndPlan } from '../api';
+import { X, FileText, RotateCw, CheckCircle2, AlertCircle, Upload } from 'lucide-react';
+import { parseChatAndPlan } from '../api';
 
 interface ChatImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRideLoaded: (rideId: string) => void;
-  demoMode: boolean;
   defaultDestination?: string;
   defaultStart?: string;
   defaultDate?: string;
@@ -27,32 +16,18 @@ export const ChatImportModal: React.FC<ChatImportModalProps> = ({
   isOpen,
   onClose,
   onRideLoaded,
-  demoMode,
   defaultDestination,
   defaultStart,
   defaultDate,
-  defaultTime
+  defaultTime,
 }) => {
   const [chatText, setChatText] = useState('');
-  const [loadingSample, setLoadingSample] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; isError?: boolean } | null>(
+    null
+  );
 
   if (!isOpen) return null;
-
-  const handleLoadSample = async () => {
-    try {
-      setLoadingSample(true);
-      setStatusMessage(null);
-      const text = await fetchSampleChat();
-      setChatText(text);
-      setStatusMessage({ text: 'Loaded 45-message sample WhatsApp chat.' });
-    } catch (err: any) {
-      setStatusMessage({ text: `Failed to load sample chat: ${err.message}`, isError: true });
-    } finally {
-      setLoadingSample(false);
-    }
-  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,7 +35,7 @@ export const ChatImportModal: React.FC<ChatImportModalProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       setChatText((event.target?.result as string) || '');
-      setStatusMessage({ text: `Imported file: ${file.name}` });
+      setStatusMessage({ text: `Loaded "${file.name}".` });
     };
     reader.readAsText(file);
   };
@@ -75,92 +50,98 @@ export const ChatImportModal: React.FC<ChatImportModalProps> = ({
         customStart: defaultStart,
         customDate: defaultDate,
         customTime: defaultTime,
-        demoMode: demoMode,
       });
 
       if (res.ride_id) {
-        setStatusMessage({ text: 'Group chat parsed and synchronized successfully.' });
+        setStatusMessage({ text: 'Group chat parsed and ride plan created.' });
         setTimeout(() => {
           onRideLoaded(res.ride_id);
           onClose();
-        }, 500);
+        }, 350);
       } else {
-        setStatusMessage({ text: 'Failed to extract ride details from chat.', isError: true });
+        setStatusMessage({ text: 'Could not extract ride details from chat.', isError: true });
       }
-    } catch (err: any) {
-      setStatusMessage({ text: `Chat parsing error: ${err.message}`, isError: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setStatusMessage({ text: msg, isError: true });
     } finally {
       setParsing(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#12161f] border border-[#1e2533] rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#141413]/60">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="chat-import-title"
+        className="animate-modal-enter bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[8px] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#1e2533] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-              <FileText className="w-5 h-5" />
+        <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-[6px] bg-[var(--accent-tint)] text-[var(--accent)] flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4" strokeWidth={1.5} />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-tight">Import WhatsApp Group Chat</h2>
-              <p className="text-xs text-slate-400 font-mono">
-                Extract confirmed riders, bike models, tank specs, and route constraints
+              <h2
+                id="chat-import-title"
+                className="font-display text-lg font-semibold text-[var(--text-primary)]"
+              >
+                Import Group Chat
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                Paste a chat export or enter one rider per line (e.g. &ldquo;Name - Bike Model&rdquo;)
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-[#1a212e] transition"
+            aria-label="Close modal"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-[6px] hover:bg-[var(--bg-hover)] cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-slate-400">
-              Paste exported WhatsApp chat (.txt) below, or use the pre-built 45-message ride chat:
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleLoadSample}
-                disabled={loadingSample || parsing}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition font-mono"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>{loadingSample ? 'Loading...' : 'Load Sample (45 msgs)'}</span>
-              </button>
-
-              <label className="px-3 py-1.5 rounded-lg bg-[#18202d] hover:bg-[#202b3d] text-slate-300 border border-[#253247] text-xs font-medium flex items-center gap-1.5 cursor-pointer transition">
-                <Upload className="w-3.5 h-3.5 text-slate-400" />
-                <span>Upload .txt</span>
-                <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
-              </label>
-            </div>
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div className="flex items-center justify-between gap-4">
+            <label
+              htmlFor="chat-import-textarea"
+              className="text-sm text-[var(--text-primary)] font-medium"
+            >
+              Chat Transcript
+            </label>
+            <label className="px-3 py-1.5 bg-transparent hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-subtle)] text-xs font-medium rounded-[6px] flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+              <Upload className="w-4 h-4" strokeWidth={1.5} />
+              <span>Upload .txt File</span>
+              <input type="file" accept=".txt" onChange={handleFileUpload} className="hidden" />
+            </label>
           </div>
 
           <textarea
+            id="chat-import-textarea"
+            rows={10}
             value={chatText}
             onChange={(e) => setChatText(e.target.value)}
-            rows={10}
-            placeholder="[24/11/26, 8:15:30 AM] Rahul: Weekend ride to Sakleshpur! I am on my Interceptor 650...&#10;[24/11/26, 8:16:10 AM] Amit: Count me in, Himalayan 450..."
-            className="w-full bg-[#0b0e14] border border-[#232b3b] rounded-xl p-3.5 text-slate-200 text-xs font-mono focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition resize-none leading-relaxed"
+            placeholder="Paste exported group chat messages here, or type riders and route details (e.g., 'Ride to Coorg from Bangalore on 2026-12-05, roll out 06:00 am')..."
+            className="w-full bg-[var(--bg-canvas)] border border-[var(--border-subtle)] rounded-[6px] p-3.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] font-mono leading-relaxed focus-visible:outline-2 focus-visible:outline-[var(--accent)] resize-none"
           />
 
           {statusMessage && (
-            <div className={`p-3 rounded-xl border text-xs flex items-center gap-2 font-mono ${
-              statusMessage.isError
-                ? 'bg-rose-950/40 border-rose-500/40 text-rose-300'
-                : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-            }`}>
+            <div
+              className={`p-3 rounded-[6px] border text-xs flex items-center gap-2 ${
+                statusMessage.isError
+                  ? 'bg-[var(--bg-canvas)] border-[var(--status-danger)]/45 text-[var(--status-danger)]'
+                  : 'bg-[var(--bg-canvas)] border-[var(--status-ok)]/45 text-[var(--status-ok)]'
+              }`}
+            >
               {statusMessage.isError ? (
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
               ) : (
-                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4 shrink-0" strokeWidth={1.5} />
               )}
               <span>{statusMessage.text}</span>
             </div>
@@ -168,36 +149,23 @@ export const ChatImportModal: React.FC<ChatImportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#1e2533] bg-[#0e1219] flex items-center justify-between">
-          <span className="text-[11px] text-slate-500 font-mono">
-            {chatText.length > 0 ? `${chatText.split('\n').length} lines ready` : 'Awaiting input'}
-          </span>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={onClose}
-              disabled={parsing}
-              className="px-4 py-2 rounded-xl text-slate-400 hover:text-white text-xs font-medium transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleParseChat}
-              disabled={!chatText.trim() || parsing}
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 transition font-mono"
-            >
-              {parsing ? (
-                <>
-                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Parsing Group Chat...</span>
-                </>
-              ) : (
-                <>
-                  <Bike className="w-3.5 h-3.5 text-slate-950" />
-                  <span>Parse Chat &amp; Synchronize Ride</span>
-                </>
-              )}
-            </button>
-          </div>
+        <div className="px-6 py-4 border-t border-[var(--border-subtle)] bg-[var(--bg-inset)] flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-transparent hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)] rounded-[6px] cursor-pointer active:scale-[0.98]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleParseChat}
+            disabled={parsing || !chatText.trim()}
+            className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-[var(--accent-ink)] font-medium text-sm rounded-[6px] flex items-center gap-2 cursor-pointer active:scale-[0.98] whitespace-nowrap"
+          >
+            <RotateCw className="w-4 h-4" strokeWidth={1.5} />
+            <span>{parsing ? 'Creating Ride...' : 'Parse & Create Plan'}</span>
+          </button>
         </div>
       </div>
     </div>

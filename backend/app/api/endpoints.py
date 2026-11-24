@@ -12,7 +12,7 @@ from backend.app.schemas import (
     RiderBase, ExpenseCreate, SettlementPlan
 )
 from backend.app.agent.orchestrator import RideCaptainOrchestrator
-from backend.app.agent.approval_gate import approve_action, reject_action
+from backend.app.agent.approval_gate import approve_action, reject_action, queue_pending_action
 from backend.app.services.bikes_data import get_all_bikes, lookup_bike
 from backend.app.services.speech_service import synthesize_speech_elevenlabs, get_briefing_text
 from backend.mcp_servers.bill_split_server import compute_minimal_settlements
@@ -59,6 +59,22 @@ class KeyUpdateRequest(BaseModel):
 class KeyTestRequest(BaseModel):
     service: str # 'ors', 'gemini', 'anthropic', 'elevenlabs'
     api_key: str
+
+class CreateRideRequest(BaseModel):
+    title: Optional[str] = None
+    start_location: str
+    destination: str
+    ride_date: Optional[str] = None
+    start_time: Optional[str] = "06:00 am"
+    pace: Optional[str] = "Brisk"
+    budget_per_head: Optional[float] = 1500.0
+
+class AddRiderRequest(BaseModel):
+    name: str
+    bike_model: Optional[str] = "Royal Enfield Himalayan 450"
+    upi_id: Optional[str] = ""
+    status: Optional[str] = "confirmed"
+    is_captain: Optional[bool] = False
 
 @router.get("/sample-chat")
 def get_sample_chat():
@@ -272,6 +288,57 @@ def update_ride_route(ride_id: str, req: RouteUpdateRequest, db: Session = Depen
     except Exception as e:
         raise HTTPException(status_code=422, detail=str(e))
 
+@router.post("/rides")
+def create_direct_ride(req: CreateRideRequest, db: Session = Depends(get_db)):
+    """Create a new ride directly without chat parsing."""
+    try:
+        final_dest = req.destination.strip()
+        final_start = req.start_location.strip()
+        title = req.title.strip() if req.title and req.title.strip() else f"Ride to {final_dest}"
+        ride_date = req.ride_date or "2026-11-29"
+        start_time = req.start_time or "06:00 am"
+
+        ride = Ride(
+            title=title,
+            start_location=final_start,
+            destination=final_dest,
+            ride_date=ride_date,
+            start_time=start_time,
+            budget_per_head=req.budget_per_head or 1500.0,
+            pace=req.pace or "Brisk",
+            food_preference="Any / Veg & Non-Veg",
+            status="DRAFT"
+        )
+        db.add(ride)
+        db.commit()
+        db.refresh(ride)
+
+        # Calculate initial route & stops
+        orchestrator = RideCaptainOrchestrator(db)
+        orchestrator.update_route(
+            ride_id=ride.id,
+            start_location=final_start,
+            destination=final_dest,
+            ride_date=ride_date,
+            start_time=start_time
+        )
+
+        # Queue initial pending actions
+        queue_pending_action(
+            db=db,
+            ride_id=ride.id,
+            action_type="BROADCAST_ROUTE_PLAN",
+            description=f"Send finalized route ({final_start} to {final_dest}) with stops to group chat",
+            tool_name="messaging.send_whatsapp_broadcast",
+            payload={"ride_id": ride.id, "type": "route_plan"}
+        )
+
+        return {"ride_id": ride.id, "title": ride.title}
+    except (GeocodeError, RoutingError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/rides")
 def list_rides(db: Session = Depends(get_db)):
     rides = db.query(Ride).order_by(Ride.created_at.desc()).all()
@@ -402,6 +469,50 @@ def update_rider(rider_id: str, updates: Dict[str, Any], db: Session = Depends(g
 
     db.commit()
     return {"status": "success", "rider_id": rider.id, "tank_range_km": rider.tank_range_km}
+
+@router.post("/rides/{ride_id}/riders")
+def add_rider_to_ride(ride_id: str, req: AddRiderRequest, db: Session = Depends(get_db)):
+    """Add a rider to an existing ride."""
+    ride = db.query(Ride).filter(Ride.id == ride_id).first()
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+
+    bike_model = req.bike_model or "Royal Enfield Himalayan 450"
+    spec = lookup_bike(bike_model)
+
+    tank_litres = spec.tank_litres if spec else 14.0
+    mileage_kmpl = spec.mileage_kmpl if spec else 28.0
+    tank_range_km = spec.tank_range_km if spec else (tank_litres * mileage_kmpl)
+
+    rider = Rider(
+        ride_id=ride.id,
+        name=req.name,
+        status=req.status or "confirmed",
+        is_captain=bool(req.is_captain),
+        phone="",
+        upi_id=req.upi_id or "",
+        bike_model=spec.model if spec else bike_model,
+        tank_litres=tank_litres,
+        mileage_kmpl=mileage_kmpl,
+        tank_range_km=tank_range_km
+    )
+    db.add(rider)
+    db.commit()
+    db.refresh(rider)
+
+    return {
+        "status": "success",
+        "rider_id": rider.id,
+        "rider": {
+            "id": rider.id,
+            "name": rider.name,
+            "status": rider.status,
+            "is_captain": rider.is_captain,
+            "bike_model": rider.bike_model,
+            "tank_range_km": rider.tank_range_km,
+            "upi_id": rider.upi_id
+        }
+    }
 
 @router.get("/bikes")
 def list_available_bikes():

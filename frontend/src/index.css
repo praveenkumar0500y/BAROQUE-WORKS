@@ -1,101 +1,282 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import "leaflet/dist/leaflet.css";
 
+@theme {
+  --font-sans: "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Bricolage Grotesque", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Touring Atlas Color System — Warm Paper (Light) & Warm Off-Black (Dark)
+   Multi-hue semantic accents: Burnt Copper, Touring Pine, Highway Amber, Coastal Teal, Brake Crimson
+   Radius system: 6px inputs/buttons/controls, 8px cards/modals
+*/
+
+:root,
+[data-theme="light"] {
+  --bg-canvas: #FAF9F6;
+  --bg-surface: #F4F3EF;
+  --bg-elevated: #FFFFFF;
+  --bg-inset: #ECEAE4;
+  --bg-hover: #E6E4DD;
+  --border-subtle: rgba(20, 20, 19, 0.1);
+  --border-strong: rgba(20, 20, 19, 0.24);
+  --text-primary: #141413;
+  --text-secondary: #43423E;
+  --text-muted: #66655F;
+
+  /* Primary Accent — Burnt Copper */
+  --accent: #C24D22;
+  --accent-hover: #A63F19;
+  --accent-ink: #FAF9F6;
+  --accent-tint: rgba(194, 77, 34, 0.11);
+
+  /* Touring Pine — Route Start / Confirmed / Go */
+  --forest: #206A4B;
+  --forest-tint: rgba(32, 106, 75, 0.11);
+
+  /* Highway Amber / Ochre — Fuel / Caution / Dates */
+  --ochre: #B97214;
+  --ochre-tint: rgba(185, 114, 20, 0.12);
+
+  /* Coastal Teal / Alpine — Weather / Distance / Demo */
+  --alpine: #1F6E78;
+  --alpine-tint: rgba(31, 110, 120, 0.11);
+
+  /* Brake Crimson — Declined / Repairs / Danger */
+  --crimson: #B83535;
+  --crimson-tint: rgba(184, 53, 53, 0.11);
+
+  --status-ok: #206A4B;
+  --status-warn: #B97214;
+  --status-danger: #B83535;
+
+  --popup-bg: #FAF9F6;
+  --popup-border: rgba(20, 20, 19, 0.16);
+  --popup-text: #141413;
+  --map-bg: #EFECE6;
+  --scroll-track: #F4F3EF;
+  --scroll-thumb: #D4D1C9;
+}
+
+.dark,
+[data-theme="dark"] {
+  --bg-canvas: #111110;
+  --bg-surface: #171715;
+  --bg-elevated: #1F1F1D;
+  --bg-inset: #191917;
+  --bg-hover: #262623;
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --text-primary: #EDEDEC;
+  --text-secondary: #C2C2BC;
+  --text-muted: #92928B;
+
+  /* Primary Accent — Burnt Copper */
+  --accent: #E27348;
+  --accent-hover: #EB865E;
+  --accent-ink: #111110;
+  --accent-tint: rgba(226, 115, 72, 0.15);
+
+  /* Touring Pine */
+  --forest: #4EBF8C;
+  --forest-tint: rgba(78, 191, 140, 0.14);
+
+  /* Highway Amber */
+  --ochre: #E6A84C;
+  --ochre-tint: rgba(230, 168, 76, 0.14);
+
+  /* Coastal Teal */
+  --alpine: #4FB2BE;
+  --alpine-tint: rgba(79, 178, 190, 0.14);
+
+  /* Brake Crimson */
+  --crimson: #E56B6B;
+  --crimson-tint: rgba(229, 107, 107, 0.14);
+
+  --status-ok: #4EBF8C;
+  --status-warn: #E6A84C;
+  --status-danger: #E56B6B;
+
+  --popup-bg: #171715;
+  --popup-border: rgba(255, 255, 255, 0.16);
+  --popup-text: #EDEDEC;
+  --map-bg: #141413;
+  --scroll-track: #111110;
+  --scroll-thumb: #2D2D2A;
+}
+
 @layer base {
-  :root {
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-    --font-display: 'Space Grotesk', -apple-system, sans-serif;
+  html,
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 180ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  body {
-    font-family: var(--font-sans);
-    background-color: #0b0e14;
-    color: #e2e8f0;
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition-property: background-color, border-color, color, transform, opacity;
+    transition-duration: 160ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
-/* Custom modern scrollbars */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Purposeful UI Motion (compositor-only transform & opacity) */
+@keyframes panelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes dashFlow {
+  from {
+    stroke-dashoffset: 320;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-panel-enter {
+  animation: panelEnter 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-modal-enter {
+  animation: modalEnter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-bar-grow {
+  transform-origin: left center;
+  animation: barGrow 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-route-draw {
+  stroke-dasharray: 320;
+  animation: dashFlow 950ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.card-interactive {
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-interactive:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d1118;
+  background: var(--scroll-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #232c3d;
-  border-radius: 4px;
+  background: var(--scroll-thumb);
+  border-radius: 3px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #37445c;
-}
-
-/* Leaflet Container & Dark-mode Tiles */
+/* Leaflet map container & solid tonal popups */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  border-radius: 0.75rem;
+  border-radius: 6px;
   z-index: 10;
-  background-color: #0b0e14;
+  background-color: var(--map-bg);
+  font-family: var(--font-sans);
 }
 
-/* Sophisticated Dark Mode Map Filter for standard OSM tiles */
-.leaflet-tile-pane {
-  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.25) brightness(0.75);
-}
-
-.custom-location-pin {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.custom-location-pin:hover {
-  transform: scale(1.15) translateY(-4px);
+.custom-location-pin:hover,
+.subtle-checkpoint-marker:hover {
   z-index: 9999 !important;
 }
 
-.subtle-checkpoint-marker {
-  transition: transform 0.15s ease-out;
-}
-
-.subtle-checkpoint-marker:hover {
-  transform: scale(1.2);
-  z-index: 999 !important;
-}
-
-/* Dark theme popup styling */
 .leaflet-popup-content-wrapper {
-  background: #141923 !important;
-  color: #f1f5f9 !important;
-  border-radius: 0.75rem !important;
-  border: 1px solid #273142 !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5) !important;
+  background: var(--popup-bg) !important;
+  color: var(--popup-text) !important;
+  border: 1px solid var(--popup-border) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
   padding: 0 !important;
 }
 
 .leaflet-popup-content {
   margin: 12px 14px !important;
-  line-height: 1.4 !important;
+  line-height: 1.45 !important;
 }
 
 .leaflet-popup-tip {
-  background: #141923 !important;
-  border: 1px solid #273142 !important;
+  background: var(--popup-bg) !important;
+  border: 1px solid var(--popup-border) !important;
+  box-shadow: none !important;
 }
 
-/* Custom Instrument Gauge pulse */
-@keyframes cockpit-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
-  }
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
+  padding: 6px 8px 0 0 !important;
 }
 
-.cockpit-recording {
-  animation: cockpit-pulse 2s infinite ease-in-out;
+.leaflet-popup-close-button:hover {
+  color: var(--text-primary) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

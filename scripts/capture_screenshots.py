@@ -19,35 +19,42 @@ def capture_all():
         print("Navigating to http://localhost:5173 ...")
         page.goto("http://localhost:5173")
         page.wait_for_load_state("networkidle")
-        time.sleep(2)
+        time.sleep(3)
 
         screens = [
-            ("00_command_center.png", "Command Center", 2),
-            ("01_route_map.png", "Route & Stops", 3),
-            ("02_riders_specs.png", "Riders & Bikes", 2),
-            ("03_approvals_gate.png", "Approvals Gate", 2),
-            ("04_action_log.png", "Action Audit Log", 2),
-            ("05_expenses_upi.png", "Expenses & UPI", 2),
-            ("06_cockpit_hud.png", "Cockpit Mode", 2),
+            ("00_command_center.png", "Route & Map", 2, "top"),
+            ("01_route_map.png", "Route & Map", 3, "map"),
+            ("02_riders_specs.png", "Riders & Bikes", 2, "top"),
+            ("03_approvals_gate.png", "Approvals", 2, "top"),
+            ("04_action_log.png", "Briefing & Log", 2, "bottom"),
+            ("05_expenses_upi.png", "Split Bills", 2, "top"),
+            ("06_cockpit_hud.png", "Briefing & Log", 2, "top"),
         ]
 
         captured_paths = []
 
-        for filename, nav_text, wait_sec in screens:
-            print(f"Capturing {nav_text} -> {filename} ...")
-            # Click sidebar nav item
+        for filename, nav_text, wait_sec, scroll_pos in screens:
+            print(f"Capturing {nav_text} ({scroll_pos}) -> {filename} ...")
+            # Click navbar item
             btn = page.locator(f"button:has-text('{nav_text}')").first
             if btn.is_visible():
                 btn.click()
             else:
-                print(f"Warning: button for {nav_text} not found directly, trying selector")
-                page.click(f"text={nav_text}")
+                print(f"Trying regex click for {nav_text}...")
+                page.locator(f"nav button:has-text('{nav_text}')").first.click()
 
             time.sleep(wait_sec)
-            
-            # If on route map, ensure map tiles have a moment to render
-            if "Route" in nav_text:
+
+            if scroll_pos == "map":
+                # Scroll down slightly to center map
+                page.evaluate("window.scrollTo(0, 320)")
                 time.sleep(1)
+            elif scroll_pos == "bottom":
+                page.evaluate("window.scrollTo(0, 450)")
+                time.sleep(1)
+            else:
+                page.evaluate("window.scrollTo(0, 0)")
+                time.sleep(0.5)
 
             out_path = os.path.join(docs_dir, filename)
             page.screenshot(path=out_path, full_page=False)
@@ -78,6 +85,7 @@ def capture_all():
             print(f"Saved walkthrough GIF: {gif_path} ({os.path.getsize(gif_path)} bytes)")
 
         browser.close()
+        print("All screenshots and GIF captured successfully!")
         print("All screenshots and GIF captured successfully!")
 
 if __name__ == "__main__":

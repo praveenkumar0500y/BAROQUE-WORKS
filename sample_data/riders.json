@@ -1,0 +1,118 @@
+[
+  {
+    "id": "rider-1",
+    "name": "Rohan (Captain)",
+    "status": "confirmed",
+    "is_captain": true,
+    "phone": "+919876543210",
+    "upi_id": "rohan.captain@okhdfcbank",
+    "bike": {
+      "model": "Royal Enfield Himalayan 450",
+      "tank_litres": 17.0,
+      "mileage_kmpl": 28.0,
+      "tank_range_km": 476.0
+    }
+  },
+  {
+    "id": "rider-2",
+    "name": "Vikram",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543211",
+    "upi_id": "vikram.hunter@okaxis",
+    "bike": {
+      "model": "Royal Enfield Hunter 350",
+      "tank_litres": 13.0,
+      "mileage_kmpl": 32.0,
+      "tank_range_km": 416.0
+    }
+  },
+  {
+    "id": "rider-3",
+    "name": "Ananya",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543212",
+    "upi_id": "ananya.adv@oksbi",
+    "bike": {
+      "model": "KTM 390 Adventure",
+      "tank_litres": 14.5,
+      "mileage_kmpl": 25.0,
+      "tank_range_km": 362.5
+    }
+  },
+  {
+    "id": "rider-4",
+    "name": "Karthik",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543213",
+    "upi_id": "karthik.dominar@icici",
+    "bike": {
+      "model": "Bajaj Dominar 400",
+      "tank_litres": 13.0,
+      "mileage_kmpl": 26.0,
+      "tank_range_km": 338.0
+    }
+  },
+  {
+    "id": "rider-5",
+    "name": "Priya",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543214",
+    "upi_id": "priya.scrambler@ybl",
+    "bike": {
+      "model": "Triumph Scrambler 400X",
+      "tank_litres": 13.0,
+      "mileage_kmpl": 28.0,
+      "tank_range_km": 364.0
+    }
+  },
+  {
+    "id": "rider-6",
+    "name": "Deepak",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543215",
+    "upi_id": "deepak.r15@paytm",
+    "bike": {
+      "model": "Yamaha R15 V4",
+      "tank_litres": 11.0,
+      "mileage_kmpl": 45.0,
+      "tank_range_km": 495.0
+    }
+  },
+  {
+    "id": "rider-7",
+    "name": "Rahul",
+    "status": "confirmed",
+    "is_captain": false,
+    "phone": "+919876543216",
+    "upi_id": "rahul.re650@okhdfcbank",
+    "bike": {
+      "model": "Royal Enfield Interceptor 650",
+      "tank_litres": 13.7,
+      "mileage_kmpl": 22.0,
+      "tank_range_km": 301.4
+    }
+  },
+  {
+    "id": "rider-8",
+    "name": "Manisha",
+    "status": "undecided",
+    "is_captain": false,
+    "phone": "",
+    "upi_id": "",
+    "bike": null
+  },
+  {
+    "id": "rider-9",
+    "name": "Suresh",
+    "status": "declined",
+    "is_captain": false,
+    "phone": "",
+    "upi_id": "",
+    "bike": null
+  }
+]

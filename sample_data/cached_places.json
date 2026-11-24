@@ -1,0 +1,194 @@
+{
+  "fuel_stations": [
+    {
+      "id": "fuel-1",
+      "name": "Indian Oil Swagat COCO Kunigal",
+      "brand": "Indian Oil",
+      "lat": 13.0210,
+      "lng": 77.0250,
+      "distance_from_start_km": 42.5,
+      "has_food_nearby": true,
+      "has_restroom": true
+    },
+    {
+      "id": "fuel-2",
+      "name": "Bharat Petroleum (BPCL) Yediyur",
+      "brand": "BPCL",
+      "lat": 12.9990,
+      "lng": 76.8810,
+      "distance_from_start_km": 74.8,
+      "has_food_nearby": true,
+      "has_restroom": true
+    },
+    {
+      "id": "fuel-3",
+      "name": "HP Auto Care Center Bellur Cross",
+      "brand": "HPCL",
+      "lat": 12.9855,
+      "lng": 76.7310,
+      "distance_from_start_km": 98.2,
+      "has_food_nearby": false,
+      "has_restroom": true
+    },
+    {
+      "id": "fuel-4",
+      "name": "Shell Highway Service Channarayapatna",
+      "brand": "Shell",
+      "lat": 12.9060,
+      "lng": 76.3910,
+      "distance_from_start_km": 145.0,
+      "has_food_nearby": true,
+      "has_restroom": true
+    },
+    {
+      "id": "fuel-5",
+      "name": "Indian Oil Mega COCO Hassan Bypass",
+      "brand": "Indian Oil",
+      "lat": 13.0020,
+      "lng": 76.0980,
+      "distance_from_start_km": 182.4,
+      "has_food_nearby": true,
+      "has_restroom": true
+    },
+    {
+      "id": "fuel-6",
+      "name": "HP Fuel Center Sakleshpur Town",
+      "brand": "HPCL",
+      "lat": 12.9730,
+      "lng": 75.7820,
+      "distance_from_start_km": 220.8,
+      "has_food_nearby": true,
+      "has_restroom": true
+    }
+  ],
+  "food_places": [
+    {
+      "id": "food-1",
+      "name": "Swathi Delicacy (Kunigal/Yediyur)",
+      "type": "breakfast",
+      "cuisine": "South Indian Pure Veg",
+      "specialty": "Thatte Idli, Filter Coffee, Vada",
+      "lat": 12.9998,
+      "lng": 76.8835,
+      "distance_from_start_km": 75.0,
+      "rating": 4.6,
+      "has_clean_restroom": true
+    },
+    {
+      "id": "food-2",
+      "name": "Paakashala Yediyur",
+      "type": "breakfast",
+      "cuisine": "Vegetarian",
+      "specialty": "Masala Dosa & Pongal",
+      "lat": 12.9970,
+      "lng": 76.8790,
+      "distance_from_start_km": 76.2,
+      "rating": 4.4,
+      "has_clean_restroom": true
+    },
+    {
+      "id": "food-3",
+      "name": "Surabhi Pure Veg Hassan",
+      "type": "tea_break",
+      "cuisine": "South Indian Snacks & Beverages",
+      "specialty": "Cold Beverages & Quick Snacks",
+      "lat": 13.0040,
+      "lng": 76.1020,
+      "distance_from_start_km": 181.5,
+      "rating": 4.2,
+      "has_clean_restroom": true
+    },
+    {
+      "id": "food-4",
+      "name": "Mythri Restaurant Sakleshpur",
+      "type": "lunch",
+      "cuisine": "Malnad Special & South Indian",
+      "specialty": "Neer Dosa, Malnad Curries, Veg Thali",
+      "lat": 12.9740,
+      "lng": 75.7850,
+      "distance_from_start_km": 221.2,
+      "rating": 4.5,
+      "has_clean_restroom": true
+    }
+  ],
+  "restrooms": [
+    {
+      "id": "restroom-1",
+      "name": "Kunigal Toll Plaza Restroom",
+      "lat": 13.0232,
+      "lng": 77.0267,
+      "distance_from_start_km": 41.0,
+      "cleanliness_score": "High"
+    },
+    {
+      "id": "restroom-2",
+      "name": "Swathi Delicacy Dedicated Facility",
+      "lat": 12.9998,
+      "lng": 76.8835,
+      "distance_from_start_km": 75.0,
+      "cleanliness_score": "Very High"
+    },
+    {
+      "id": "restroom-3",
+      "name": "Bellur Highway Oasis Comfort Stop",
+      "lat": 12.9860,
+      "lng": 76.7320,
+      "distance_from_start_km": 99.0,
+      "cleanliness_score": "Good"
+    },
+    {
+      "id": "restroom-4",
+      "name": "Channarayapatna Bypass Restrooms",
+      "lat": 12.9067,
+      "lng": 76.3920,
+      "distance_from_start_km": 145.5,
+      "cleanliness_score": "Good"
+    },
+    {
+      "id": "restroom-5",
+      "name": "Hassan Indian Oil COCO Restroom",
+      "lat": 13.0020,
+      "lng": 76.0980,
+      "distance_from_start_km": 182.4,
+      "cleanliness_score": "High"
+    }
+  ],
+  "repair_shops": [
+    {
+      "id": "repair-1",
+      "name": "Royal Enfield Service Point Kunigal",
+      "lat": 13.0250,
+      "lng": 77.0280,
+      "distance_from_start_km": 43.0,
+      "phone": "+919845012345",
+      "services": ["RE Specialized", "Minor Repairs", "Chain Lube", "Electrical"]
+    },
+    {
+      "id": "repair-2",
+      "name": "Channarayapatna 24/7 Highway Puncture & Tubeless Center",
+      "lat": 12.9075,
+      "lng": 76.3930,
+      "distance_from_start_km": 146.0,
+      "phone": "+919845023456",
+      "services": ["Tubeless Punctures", "Air Topup", "Tube Vulcanizing"]
+    },
+    {
+      "id": "repair-3",
+      "name": "Hassan KTM & Bajaj Authorized Service",
+      "lat": 13.0050,
+      "lng": 76.1050,
+      "distance_from_start_km": 183.0,
+      "phone": "+919845034567",
+      "services": ["KTM/Bajaj OEM Parts", "Diagnostic Tool", "Tire Replacement"]
+    },
+    {
+      "id": "repair-4",
+      "name": "Sakleshpur Mountain Moto Mechanics",
+      "lat": 12.9720,
+      "lng": 75.7810,
+      "distance_from_start_km": 221.0,
+      "phone": "+919845045678",
+      "services": ["Brake Pads", "Clutch Cable", "Ghat Rescue Support"]
+    }
+  ]
+}

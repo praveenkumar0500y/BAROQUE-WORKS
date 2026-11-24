@@ -21,29 +21,47 @@ Organizing a weekend motorcycle group ride is exhausting:
 2. **The Bottleneck Bike Danger:** Generic route planners treat all vehicles equally, ignoring each motorcycle's tank range. If one rider runs an **Interceptor 650** with a 13.7L tank while another rides an **XPulse 200**, planning fuel stops based on averages leaves someone stranded in a remote ghat section with no network.
 3. **Loss of Control:** Typical AI agents act like black boxes — they book, email, or broadcast without human verification. Ride captains need **uncompromising control** over group announcements, route changes, and expense settlements.
 
-**Ride Captain's Copilot** solves this by uniting **6 discrete FastMCP servers** behind an unbreachable **Human-in-the-Loop Approval Gate** and an immutable **Action Audit Log**.
+**Ride Captain's Copilot** solves this by uniting **6 discrete FastMCP servers** behind an **approval gate: no write action runs without captain approval** and an **append-only audit log in the app**.
 
 ---
 
-## 📸 Screenshots & UI Tour
+## 📸 Screenshots & Demo Walkthrough
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ 🏍️ RIDE CAPTAIN'S COPILOT   [Make MCP Matter]   [🛡️ Controlled by Captain: 3 Pending]  │
-├────────────┬────────────────┬───────────────┬─────────────┬────────────┬───────────────┤
-│ 1. New Ride│ 2. Parsed Roster│ 3. Route & Map│ 4. Approvals│ 5. Action Log│ 6. Expenses │
-└────────────┴────────────────┴───────────────┴─────────────┴────────────┴───────────────┘
-```
+### 🎬 Full Flow Demo Walkthrough
+![Ride Captain's Copilot Demo Walkthrough](docs/images/demo_walkthrough.gif)
 
-| Screen | Description | Status |
-|---|---|---|
-| **1. New Ride** | Paste WhatsApp chat export or load 45-message sample chat. 1-click Demo Mode switch. | `Working` |
-| **2. Parsed Roster** | Extracted confirmed, undecided, and declined riders. Matches Indian motorcycle tank capacities. Identifies the group bottleneck bike. | `Working` |
-| **3. Route & Stops** | Interactive Leaflet map with custom colored stop pins (Fuel ⛽, Food 🍔, Restroom 🚻, Repair 🔧). Timeline list + Open-Meteo GO/CAUTION/NO-GO verdict. | `Working` |
-| **4. Approvals Gate** | Captain's cockpit: approves or rejects pending write actions (`SAVE_PLAN`, `CALENDAR_EXPORT`, `GROUP_SUMMARY`, `SETTLEMENT_LINKS`). Download .ics or copy broadcast. | `Working` |
-| **5. Action Log** | Real-time filterable audit trail of every MCP tool invocation, inputs, outputs, timestamps, and actor. | `Working` |
-| **6. Expenses & UPI** | Group expense ledger with greedy cash-flow minimization and instant `upi://pay` deep links. | `Working` |
-| **7. Ride Mode** | Voice-first cockpit with ElevenLabs multilingual speech (English, Hindi, Kannada) and Web Speech API hands-free voice input. | `Working` |
+---
+
+### 🖼️ Real App Screenshots
+
+| 1. Route Planning & Interactive Map | 2. Parsed Roster & Bottleneck Detection |
+| :---: | :---: |
+| [![Route Map](docs/images/01_route_map.png)](docs/images/01_route_map.png) | [![Riders & Specs](docs/images/02_riders_specs.png)](docs/images/02_riders_specs.png) |
+| *Interactive Leaflet highway route, custom stop pins (Fuel ⛽, Food 🍔, Restroom 🚻, Service 🔧), and weather verdict.* | *Extracted riders, Indian motorcycle tank matching, and group safe range bottleneck calculation.* |
+
+| 3. Captain's Approval Gate | 4. Action Audit Log (Append-Only) |
+| :---: | :---: |
+| [![Approvals Gate](docs/images/03_approvals_gate.png)](docs/images/03_approvals_gate.png) | [![Action Log](docs/images/04_action_log.png)](docs/images/04_action_log.png) |
+| *No write action executes without captain sign-off (`SAVE_PLAN`, `CALENDAR_EXPORT`, `GROUP_SUMMARY`, `SETTLEMENT_LINKS`).* | *Real-time append-only log of every MCP tool invocation, inputs, outputs, timestamps, and caller.* |
+
+| 5. Expenses & UPI Deep Links |
+| :---: |
+| [![Expenses & UPI](docs/images/05_expenses_upi.png)](docs/images/05_expenses_upi.png) |
+| *Shared expense ledger with greedy cash-flow minimization and instant `upi://pay` deep links.* |
+
+---
+
+### 📋 Feature Matrix & Telemetry Behavior
+
+| Feature / Screen | Capabilities | Live Mode (with keys/online) | Demo Mode (zero keys/offline) |
+|---|---|---|---|
+| **1. Chat Import** | Import raw WhatsApp chat logs or one-click 45-message sample chat | Live LLM (Gemini / Anthropic) with schema validation | Deterministic mock parser for instant zero-key testing |
+| **2. Parsed Roster** | Extracted confirmed, undecided, and declined riders with bike matching | Real-time Indian motorcycle database lookup & safe range algorithm | Same local motorcycle specs db (Royal Enfield, KTM, Triumph, etc.) |
+| **3. Route & Stops** | Leaflet map with stop pins (Fuel, Food, Restroom, Repair) + weather | Live OpenRouteService geometry + Live Open-Meteo weather | Pre-cached Bangalore–Sakleshpur route, real Nominatim reverse geocode |
+| **4. Approvals Gate** | Approval gate: no write action runs without captain approval | Live interceptor: blocks writes until captain clicks Approve or Rejects | Same live approval state machine; produces live `.ics` and broadcast |
+| **5. Action Log** | Append-only audit log in the app with filtering and execution details | Live SQLite audit logging of every MCP tool call, input, and response | Same live SQLite append-only audit trail in the app |
+| **6. Expenses & UPI** | Group expense ledger, greedy cashflow minimization ($O(N)$ transfers) | Live computation + generates authentic `upi://pay` deep links | Live computation + generates authentic `upi://pay` deep links |
+| **7. Cockpit / Ride Mode**| Voice-first cockpit with hands-free STT and multilingual TTS | Live ElevenLabs multilingual speech + Web Speech STT | Native browser Web Speech API (zero keys required) |
 
 ---
 
@@ -79,7 +97,7 @@ flowchart TD
         ReadExec[Auto-Execute Read Tools<br/>• Query Weather<br/>• Geocode Route<br/>• Parse Chat]
         WritePending[Queue Mutation as PENDING<br/>• Save Plan<br/>• Export Calendar<br/>• Group WhatsApp Post<br/>• Debt Settlements]
         CaptainDecision[Ride Captain Approval<br/>UI Button or Voice 'Confirm']
-        AuditLog[(Action Audit Log<br/>Immutable SQLite Record)]
+        AuditLog[(Action Audit Log<br/>Append-Only App Record)]
     end
 
     %% Outputs & UI
@@ -112,13 +130,13 @@ In agentic systems, giving LLMs write permissions often results in irreversible 
 1. **Autonomous Read Discovery (Zero Latency)**:
    - Tool calls that fetch information run freely: parsing messages, geocoding waypoints, polling Open-Meteo weather, and computing cash-flow balances.
 2. **Gated Mutations (Zero Risk)**:
-   - Any tool that produces an external side-effect is intercepted by the **Approval Gate**:
+   - Any tool that produces an external side-effect is intercepted by the **approval gate: no write action runs without captain approval**:
      - `SAVE_PLAN`: Writing stops to database.
      - `CALENDAR_EXPORT`: Generating official calendar invites.
      - `GROUP_SUMMARY`: Preparing official ride broadcasts.
      - `SETTLEMENT_LINKS`: Publishing binding financial transfer links.
-3. **Immutable Audit Log**:
-   - Every single tool invocation, whether auto-read, blocked, approved, or rejected, is permanently recorded in SQLite and rendered in the UI with timestamps and actor designations.
+3. **Append-Only Audit Log in the App**:
+   - Every single tool invocation, whether auto-read, blocked, approved, or rejected, is permanently recorded in the app's append-only SQLite log and rendered in the UI with timestamps and actor designations.
 4. **Hands-Free Voice Approval**:
    - On the road in Ride Mode, the captain can say **"Confirm"** or **"Cancel"** into helmet communications to approve or reject pending actions without taking gloves off.
 5. **One-Click Privacy**:
@@ -135,16 +153,16 @@ $$\text{Safe Leg Limit} = 0.8 \times \min_{r \in \text{Confirmed}} (\text{Tank L
 - Places a mandatory fuel stop at **Hassan Bypass (182.4 km)** before entering the ghats.
 - If any station gap exceeds the safe range, it triggers a **CRITICAL WARNING** in the plan.
 
-### 2. Overpass Places & Restroom Coverage ($\le 60\text{ km}$)
+### 2. Overpass Places & Restroom Coverage (Every 60 km or less)
 - Places breakfast stops in typical morning meal windows (7:00 am – 8:30 am, matching chat food preferences like Swathi Delicacy Thatte Idli).
 - Enforces comfort stops so no highway stretch exceeds 60 km without a clean restroom.
 - Maps authorized motorcycle service centers and tire puncture shops as safety nets.
 
 ### 3. Open-Meteo Weather Verdict
-- Evaluates rain probability, wind speeds, and WMO thunderstorm codes:
-  - **NO-GO**: Thunderstorm codes (95, 96, 99), rain probability $\ge 70\%$, or wind $\ge 45\text{ km/h}$.
-  - **CAUTION**: Rain probability $40\% - 69\%$ or wind $30 - 44\text{ km/h}$.
-  - **GO**: Rain probability $< 40\%$ and wind $< 30\text{ km/h}$.
+- Evaluates rain probability, wind speeds, and WMO thunderstorm codes in plain text:
+  - **NO-GO**: Thunderstorm codes (95, 96, 99), rain probability 70% or more, or wind speed 45 km/h or more.
+  - **CAUTION**: Rain probability between 40% and 69%, or wind speed between 30 and 44 km/h.
+  - **GO**: Rain probability under 40% and wind speed under 30 km/h.
 
 ### 4. Greedy Cashflow Settlement & UPI Deep Links
 - Balances are guaranteed to sum to zero ($\sum B_i = 0$).
@@ -173,8 +191,8 @@ $$\text{Safe Leg Limit} = 0.8 \times \min_{r \in \text{Confirmed}} (\text{Tank L
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/ride-captains-copilot.git
-cd ride-captains-copilot
+git clone https://github.com/praveenkumar0500y/BAROQUE-WORKS.git
+cd BAROQUE-WORKS
 ```
 
 ### 2. Install dependencies

@@ -1,37 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { HomeTab } from './components/HomeTab';
+import { RouteSetupTab } from './components/RouteSetupTab';
 import { ParsedRideTab } from './components/ParsedRideTab';
-import { PlanTab } from './components/PlanTab';
 import { ApprovalsTab } from './components/ApprovalsTab';
 import { ActionLogTab } from './components/ActionLogTab';
 import { ExpensesTab } from './components/ExpensesTab';
 import { RideModeTab } from './components/RideModeTab';
+import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { fetchRideDetails, listRides } from './api';
-import { RideDetails } from './types';
-import { AlertTriangle, Compass } from 'lucide-react';
+import type { RideDetails } from './types';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<string>('home');
-  const [demoMode, setDemoMode] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<string>('route'); // Route Setup is Tab 1!
+  const [demoMode, setDemoMode] = useState<boolean>(false);
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [rideDetails, setRideDetails] = useState<RideDetails | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [isApiSettingsOpen, setIsApiSettingsOpen] = useState<boolean>(false);
 
   const loadRide = async (id: string) => {
     try {
-      setLoading(true);
       const data = await fetchRideDetails(id);
       setRideDetails(data);
       setActiveRideId(id);
     } catch (err) {
       console.error('Failed to load ride:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Load existing ride on start if available
   useEffect(() => {
     listRides().then((rides) => {
       if (rides && rides.length > 0) {
@@ -51,34 +46,21 @@ export function App() {
         demoMode={demoMode}
         setDemoMode={setDemoMode}
         currentRideTitle={rideDetails?.title}
+        onOpenApiSettings={() => setIsApiSettingsOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        {activeTab === 'home' && (
-          <HomeTab
+        {activeTab === 'route' && (
+          <RouteSetupTab
+            ride={rideDetails}
             demoMode={demoMode}
-            onRideLoaded={(id) => {
-              loadRide(id);
-              setActiveTab('parsed');
+            onRideLoaded={(id) => loadRide(id)}
+            onRefreshRide={() => {
+              if (rideDetails) loadRide(rideDetails.id);
             }}
             setActiveTab={setActiveTab}
+            onOpenApiSettings={() => setIsApiSettingsOpen(true)}
           />
-        )}
-
-        {activeTab !== 'home' && !rideDetails && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center max-w-lg mx-auto space-y-4">
-            <Compass className="w-12 h-12 text-amber-400 mx-auto animate-pulse" />
-            <h3 className="text-white font-bold text-base">No Active Ride Selected</h3>
-            <p className="text-slate-400 text-xs">
-              Please start by pasting a WhatsApp group chat or loading the 45-message sample chat on the Home tab.
-            </p>
-            <button
-              onClick={() => setActiveTab('home')}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition"
-            >
-              Go to Tab 1 (New Ride)
-            </button>
-          </div>
         )}
 
         {rideDetails && (
@@ -87,13 +69,6 @@ export function App() {
               <ParsedRideTab
                 ride={rideDetails}
                 onRefreshRide={() => loadRide(rideDetails.id)}
-                setActiveTab={setActiveTab}
-              />
-            )}
-
-            {activeTab === 'plan' && (
-              <PlanTab
-                ride={rideDetails}
                 setActiveTab={setActiveTab}
               />
             )}
@@ -112,7 +87,7 @@ export function App() {
                 onRideDeleted={() => {
                   setRideDetails(null);
                   setActiveRideId(null);
-                  setActiveTab('home');
+                  setActiveTab('route');
                 }}
               />
             )}
@@ -133,9 +108,11 @@ export function App() {
         )}
       </main>
 
-      <footer className="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
-        Ride Captain's Copilot &bull; Built with FastMCP, React, Vite, Leaflet &amp; Python &bull; Make MCP Matter Track
-      </footer>
+      {/* External API Settings Modal */}
+      <ApiSettingsModal
+        isOpen={isApiSettingsOpen}
+        onClose={() => setIsApiSettingsOpen(false)}
+      />
     </div>
   );
 }

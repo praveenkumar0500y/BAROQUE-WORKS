@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Plus, ArrowRight, CheckCircle2, QrCode, ExternalLink, IndianRupee, RefreshCw } from 'lucide-react';
-import { RideDetails, Expense, SettlementPlan } from '../types';
+import { CreditCard, Plus, ArrowRight, ExternalLink } from 'lucide-react';
+import type { RideDetails, Expense, SettlementPlan } from '../types';
 import { addExpense, fetchExpenses, fetchSettlement } from '../api';
 
 interface ExpensesTabProps {
@@ -10,7 +10,6 @@ interface ExpensesTabProps {
 export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [settlement, setSettlement] = useState<SettlementPlan | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
 
   // New expense form state
@@ -21,7 +20,6 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const [expList, setPlan] = await Promise.all([
         fetchExpenses(ride.id),
         fetchSettlement(ride.id),
@@ -30,31 +28,26 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
       setSettlement(setPlan);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Seed initial expense if empty to demonstrate settlement immediately
     const init = async () => {
       const existing = await fetchExpenses(ride.id);
       if (existing.length === 0 && ride.riders.length > 0) {
         const captain = ride.riders.find(r => r.is_captain) || ride.riders[0];
         const confirmedIds = ride.riders.filter(r => r.status === 'confirmed').map(r => r.id);
         
-        // Add sample breakfast expense (e.g. Swathi Delicacy Thatte Idli for group)
         await addExpense(ride.id, {
           payer_id: captain.id,
           payer_name: captain.name,
           amount: 2800.0,
           category: 'food',
-          description: 'Swathi Delicacy (Thatte Idli, Filter Coffee & Snacks)',
+          description: 'Highway Breakfast & Snacks for Group',
           split_type: 'EQUAL',
           split_among: confirmedIds,
         });
 
-        // Add sample highway toll & emergency repair fund by Vikram
         if (ride.riders.length > 1) {
           const secondRider = ride.riders[1];
           await addExpense(ride.id, {
@@ -62,16 +55,13 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
             payer_name: secondRider.name,
             amount: 700.0,
             category: 'toll',
-            description: 'Nelamangala Highway FASTag & Chain Lube',
+            description: 'Highway FASTag & Chain Lube',
             split_type: 'EQUAL',
             split_among: confirmedIds,
           });
         }
       }
-      const expList = await fetchExpenses(ride.id);
-      const plan = await fetchSettlement(ride.id);
-      setExpenses(expList);
-      setSettlement(plan);
+      loadData();
     };
     init();
   }, [ride.id]);
@@ -97,11 +87,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
       setShowAddForm(false);
       setAmount('');
       setDescription('');
-      
-      const expList = await fetchExpenses(ride.id);
-      const plan = await fetchSettlement(ride.id);
-      setExpenses(expList);
-      setSettlement(plan);
+      loadData();
     } catch (err) {
       alert('Failed to save expense');
     }
@@ -113,10 +99,10 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Expense Split & UPI Ledger</span>
-            <h2 className="text-xl font-black text-white">Ride Cost Pool & Settlements</h2>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Expense Split &amp; UPI Ledger</span>
+            <h2 className="text-xl font-black text-white">Cost Split &amp; Settlement Transfers</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Net debt minimization algorithm produces the smallest transaction set with instant UPI deep links.
+              Net cash-flow debt minimization algorithm resolves group debts with instant UPI payment deep links.
             </p>
           </div>
 
@@ -126,27 +112,27 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
               className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Expense</span>
+              <span>Record Expense</span>
             </button>
           </div>
         </div>
 
         {/* Totals Strip */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 pt-1">
-          <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl">
+          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
             <span className="text-[11px] text-slate-400">Total Group Spend</span>
             <div className="text-xl font-black text-white font-mono mt-0.5">
-              ₹{settlement?.total_expenses.toFixed(2) || '0.00'}
+              INR {settlement?.total_expenses.toFixed(2) || '0.00'}
             </div>
           </div>
-          <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl">
-            <span className="text-[11px] text-slate-400">Recorded Expenses</span>
+          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
+            <span className="text-[11px] text-slate-400">Recorded Bills</span>
             <div className="text-xl font-black text-amber-400 font-mono mt-0.5">
               {expenses.length} bills
             </div>
           </div>
-          <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl">
-            <span className="text-[11px] text-slate-400">Optimal Settlements Needed</span>
+          <div className="p-3 bg-slate-950 border border-slate-800/80 rounded-xl">
+            <span className="text-[11px] text-slate-400">Optimal Transfers</span>
             <div className="text-xl font-black text-emerald-400 font-mono mt-0.5">
               {settlement?.settlements.length || 0} transfers
             </div>
@@ -156,11 +142,11 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
 
       {/* Add Expense Form Modal/Drawer */}
       {showAddForm && (
-        <form onSubmit={handleCreateExpense} className="bg-slate-900 border border-amber-500/40 rounded-2xl p-5 shadow-xl space-y-4">
+        <form onSubmit={handleCreateExpense} className="bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h3 className="text-white font-bold text-sm">Add New Group Expense</h3>
+            <h3 className="text-white font-bold text-sm">Add Group Expense</h3>
             <button type="button" onClick={() => setShowAddForm(false)} className="text-slate-400 text-xs">
-              ✕ Cancel
+              Cancel
             </button>
           </div>
 
@@ -183,7 +169,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Amount (₹)</label>
+              <label className="block text-slate-400 mb-1">Amount (INR)</label>
               <input
                 type="number"
                 step="0.01"
@@ -202,11 +188,11 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
               >
-                <option value="food">Food & Breakfast</option>
+                <option value="food">Food &amp; Breakfast</option>
                 <option value="fuel">Fuel Refill</option>
                 <option value="toll">Highway Toll</option>
-                <option value="repair">Puncture / Repair</option>
-                <option value="stay">Homestay / Lodging</option>
+                <option value="repair">Puncture &amp; Repair</option>
+                <option value="stay">Lodging</option>
                 <option value="other">Miscellaneous</option>
               </select>
             </div>
@@ -215,7 +201,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
               <label className="block text-slate-400 mb-1">Description</label>
               <input
                 type="text"
-                placeholder="e.g. Swathi Delicacy Breakfast"
+                placeholder="e.g. Breakfast stop"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white"
@@ -228,7 +214,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
               type="submit"
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl"
             >
-              Save & Recalculate Split
+              Save &amp; Recalculate
             </button>
           </div>
         </form>
@@ -243,39 +229,39 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
 
         {settlement?.settlements.length === 0 ? (
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center text-slate-400 text-xs">
-            ✓ Everyone is all settled up! No outstanding balances.
+            All accounts are settled up. No outstanding balances.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {settlement?.settlements.map((item, idx) => (
               <div
                 key={idx}
-                className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4 shadow-lg space-y-3 transition"
+                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 shadow-lg space-y-3 transition"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
                     Transfer #{idx + 1}
                   </span>
                   <span className="text-base font-black text-emerald-400 font-mono">
-                    ₹{item.amount.toFixed(2)}
+                    INR {item.amount.toFixed(2)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs py-1">
                   <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-400 uppercase">Debtor (Owes)</span>
+                    <span className="text-[10px] text-slate-400 uppercase">Debtor</span>
                     <div className="font-bold text-rose-400">{item.from_rider_name}</div>
                   </div>
 
                   <ArrowRight className="w-4 h-4 text-slate-600" />
 
                   <div className="space-y-0.5 text-right">
-                    <span className="text-[10px] text-slate-400 uppercase">Creditor (Gets)</span>
+                    <span className="text-[10px] text-slate-400 uppercase">Creditor</span>
                     <div className="font-bold text-emerald-400">{item.to_rider_name}</div>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
                   <div className="text-[11px] font-mono text-slate-400 truncate">
                     UPI: <strong className="text-slate-300">{item.upi_id}</strong>
                   </div>
@@ -319,7 +305,7 @@ export const ExpensesTab: React.FC<ExpensesTabProps> = ({ ride }) => {
                     </span>
                   </td>
                   <td className="py-2.5 px-3 font-mono font-bold text-amber-400">
-                    ₹{e.amount.toFixed(2)}
+                    INR {e.amount.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-3 text-slate-400">Equal among confirmed</td>
                 </tr>

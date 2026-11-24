@@ -1,4 +1,4 @@
-import { RideDetails, ActionLog, SettlementPlan, Expense, BikeSpec } from './types';
+import type { RideDetails, ActionLog, SettlementPlan, Expense, BikeSpec } from './types';
 
 const API_BASE = '/api';
 
@@ -9,13 +9,60 @@ export async function fetchSampleChat(): Promise<string> {
   return data.chat_text;
 }
 
-export async function parseChatAndPlan(chatText: string, demoMode: boolean = true): Promise<any> {
+export async function parseChatAndPlan(
+  chatText: string,
+  options?: {
+    customDestination?: string;
+    customStart?: string;
+    customDate?: string;
+    customTime?: string;
+    demoMode?: boolean;
+  }
+): Promise<any> {
   const res = await fetch(`${API_BASE}/chat/parse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_text: chatText, demo_mode: demoMode }),
+    body: JSON.stringify({
+      chat_text: chatText,
+      custom_destination: options?.customDestination,
+      custom_start: options?.customStart,
+      custom_date: options?.customDate,
+      custom_time: options?.customTime,
+      demo_mode: options?.demoMode ?? false,
+    }),
   });
   if (!res.ok) throw new Error('Failed to parse chat and plan ride');
+  return res.json();
+}
+
+export async function previewRoute(payload: {
+  start_location: string;
+  destination: string;
+  smallest_tank_range_km?: number;
+  start_time?: string;
+  target_date?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/route/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to calculate route preview');
+  return res.json();
+}
+
+export async function updateRideRoute(rideId: string, payload: {
+  start_location: string;
+  destination: string;
+  ride_date?: string;
+  start_time?: string;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/rides/${rideId}/update-route`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to update ride route');
   return res.json();
 }
 
@@ -112,5 +159,32 @@ export async function deleteRide(rideId: string): Promise<any> {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete ride');
+  return res.json();
+}
+
+// API Credentials Management
+export async function fetchApiSettings(): Promise<any> {
+  const res = await fetch(`${API_BASE}/settings/keys`);
+  if (!res.ok) throw new Error('Failed to fetch API settings');
+  return res.json();
+}
+
+export async function updateApiSettings(keys: Record<string, string>): Promise<any> {
+  const res = await fetch(`${API_BASE}/settings/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(keys),
+  });
+  if (!res.ok) throw new Error('Failed to update API settings');
+  return res.json();
+}
+
+export async function testApiKey(service: string, apiKey: string): Promise<any> {
+  const res = await fetch(`${API_BASE}/settings/test-key`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service, api_key: apiKey }),
+  });
+  if (!res.ok) throw new Error('Failed to test key');
   return res.json();
 }

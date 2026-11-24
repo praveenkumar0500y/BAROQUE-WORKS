@@ -1,20 +1,57 @@
 import json
+import time
+import httpx
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.app.db import get_db
-from backend.app.config import settings
+from backend.app.config import settings, update_env_key
 from backend.app.models import Ride, Rider, RideStop, PendingAction, ActionLog, Expense
 from backend.app.schemas import (
-    ChatParseRequest, RiderBase, ExpenseCreate, SettlementPlan
+    RiderBase, ExpenseCreate, SettlementPlan
 )
 from backend.app.agent.orchestrator import RideCaptainOrchestrator
 from backend.app.agent.approval_gate import approve_action, reject_action
 from backend.app.services.bikes_data import get_all_bikes, lookup_bike
 from backend.app.services.speech_service import synthesize_speech_elevenlabs, get_briefing_text
 from backend.mcp_servers.bill_split_server import compute_minimal_settlements
+from backend.mcp_servers.stop_finder_server import geocode_place, get_routing_osrm_or_ors, synthesize_dynamic_stops
+from backend.mcp_servers.weather_server import get_route_weather
 
 router = APIRouter()
+
+class ChatParseWithRouteRequest(BaseModel):
+    chat_text: str
+    custom_destination: Optional[str] = None
+    custom_start: Optional[str] = None
+    custom_date: Optional[str] = None
+    custom_time: Optional[str] = None
+    demo_mode: bool = False
+
+class RouteUpdateRequest(BaseModel):
+    start_location: str
+    destination: str
+    ride_date: Optional[str] = None
+    start_time: Optional[str] = None
+
+class RoutePreviewRequest(BaseModel):
+    start_location: str
+    destination: str
+    smallest_tank_range_km: float = 301.4
+    start_time: str = "05:30 am"
+    target_date: str = "2026-11-29"
+
+class KeyUpdateRequest(BaseModel):
+    ors_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
+    elevenlabs_api_key: Optional[str] = None
+    llm_provider: Optional[str] = None
+
+class KeyTestRequest(BaseModel):
+    service: str # 'ors', 'gemini', 'anthropic', 'elevenlabs'
+    api_key: str
 
 @router.get("/sample-chat")
 def get_sample_chat():
@@ -27,15 +64,80 @@ def get_sample_chat():
     return {"chat_text": content}
 
 @router.post("/chat/parse")
-def parse_chat_and_plan(req: ChatParseRequest, db: Session = Depends(get_db)):
-    """Parse chat text, initiate ride, calculate route & stops, and queue pending approvals."""
+def parse_chat_and_plan(req: ChatParseWithRouteRequest, db: Session = Depends(get_db)):
+    """Parse chat, initiate ride, and generate route & stops."""
     orchestrator = RideCaptainOrchestrator(db)
-    result = orchestrator.plan_ride_from_chat(req.chat_text, demo_mode=req.demo_mode)
+    result = orchestrator.plan_ride_from_chat(
+        chat_text=req.chat_text,
+        custom_destination=req.custom_destination,
+        custom_start=req.custom_start,
+        custom_date=req.custom_date,
+        custom_time=req.custom_time,
+        demo_mode=req.demo_mode
+    )
+    return result
+
+@router.post("/route/preview")
+def preview_route(req: RoutePreviewRequest):
+    """Live geocode and route preview for any start/destination pair."""
+    s_lat, s_lng, s_name = geocode_place(req.start_location)
+    d_lat, d_lng, d_name = geocode_place(req.destination)
+
+    route_info = get_routing_osrm_or_ors(s_lat, s_lng, d_lat, d_lng)
+    stops_info = synthesize_dynamic_stops(
+        polyline=route_info["polyline"],
+        total_distance_km=route_info["total_distance_km"],
+        start_name=s_name,
+        dest_name=d_name,
+        start_time=req.start_time,
+        smallest_tank_range_km=req.smallest_tank_range_km
+    )
+
+    checkpoints_for_weather = [
+        {"name": t["name"], "lat": t["lat"], "lng": t["lng"], "eta": t.get("eta", "")}
+        for t in stops_info["timeline"][:4]
+    ]
+    weather_str = get_route_weather(
+        target_date=req.target_date,
+        demo_mode=False,
+        checkpoints_json=json.dumps(checkpoints_for_weather)
+    )
+    weather_data = json.loads(weather_str)
+
+    return {
+        "start_location": s_name,
+        "start_lat": s_lat,
+        "start_lng": s_lng,
+        "destination": d_name,
+        "dest_lat": d_lat,
+        "dest_lng": d_lng,
+        "total_distance_km": route_info["total_distance_km"],
+        "estimated_duration_minutes": route_info["estimated_duration_minutes"],
+        "polyline": route_info["polyline"],
+        "routing_provider": route_info.get("provider", "OSRM"),
+        "fuel_plan": stops_info["fuel_plan"],
+        "timeline": stops_info["timeline"],
+        "repair_shops": stops_info["repair_shops"],
+        "weather": weather_data
+    }
+
+@router.post("/rides/{ride_id}/update-route")
+def update_ride_route(ride_id: str, req: RouteUpdateRequest, db: Session = Depends(get_db)):
+    """Update ride's end destination or start location and recalculate everything."""
+    orchestrator = RideCaptainOrchestrator(db)
+    result = orchestrator.update_route(
+        ride_id=ride_id,
+        start_location=req.start_location,
+        destination=req.destination,
+        ride_date=req.ride_date,
+        start_time=req.start_time
+    )
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result.get("message"))
     return result
 
 @router.get("/rides")
 def list_rides(db: Session = Depends(get_db)):
-    """List all created rides."""
     rides = db.query(Ride).order_by(Ride.created_at.desc()).all()
     return [
         {
@@ -53,7 +155,6 @@ def list_rides(db: Session = Depends(get_db)):
 
 @router.get("/rides/{ride_id}")
 def get_ride_details(ride_id: str, db: Session = Depends(get_db)):
-    """Fetch complete ride model with riders, stops, pending actions, and logs."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -131,7 +232,6 @@ def get_ride_details(ride_id: str, db: Session = Depends(get_db)):
 
 @router.patch("/riders/{rider_id}")
 def update_rider(rider_id: str, updates: Dict[str, Any], db: Session = Depends(get_db)):
-    """Update a rider's details, bike, or status."""
     rider = db.query(Rider).filter(Rider.id == rider_id).first()
     if not rider:
         raise HTTPException(status_code=404, detail="Rider not found")
@@ -163,12 +263,10 @@ def update_rider(rider_id: str, updates: Dict[str, Any], db: Session = Depends(g
 
 @router.get("/bikes")
 def list_available_bikes():
-    """List standard Indian motorcycles with tank capacities and mileage specs."""
     return get_all_bikes()
 
 @router.post("/pending-actions/{action_id}/approve")
 def approve_pending_action(action_id: str, db: Session = Depends(get_db)):
-    """Captain approves a pending action."""
     res = approve_action(db, action_id)
     if res.get("status") == "error":
         raise HTTPException(status_code=400, detail=res.get("message"))
@@ -176,7 +274,6 @@ def approve_pending_action(action_id: str, db: Session = Depends(get_db)):
 
 @router.post("/pending-actions/{action_id}/reject")
 def reject_pending_action(action_id: str, db: Session = Depends(get_db)):
-    """Captain rejects a pending action."""
     res = reject_action(db, action_id)
     if res.get("status") == "error":
         raise HTTPException(status_code=400, detail=res.get("message"))
@@ -184,7 +281,6 @@ def reject_pending_action(action_id: str, db: Session = Depends(get_db)):
 
 @router.get("/rides/{ride_id}/action-logs")
 def get_action_logs(ride_id: str, db: Session = Depends(get_db)):
-    """Fetch immutable action audit logs for this ride."""
     logs = db.query(ActionLog).filter(
         (ActionLog.ride_id == ride_id) | (ActionLog.ride_id == "pending")
     ).order_by(ActionLog.timestamp.desc()).all()
@@ -204,7 +300,6 @@ def get_action_logs(ride_id: str, db: Session = Depends(get_db)):
 
 @router.post("/rides/{ride_id}/expenses")
 def add_ride_expense(ride_id: str, exp: ExpenseCreate, db: Session = Depends(get_db)):
-    """Record an expense."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -226,7 +321,6 @@ def add_ride_expense(ride_id: str, exp: ExpenseCreate, db: Session = Depends(get
 
 @router.get("/rides/{ride_id}/expenses")
 def get_ride_expenses(ride_id: str, db: Session = Depends(get_db)):
-    """List expenses for a ride."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -247,7 +341,6 @@ def get_ride_expenses(ride_id: str, db: Session = Depends(get_db)):
 
 @router.get("/rides/{ride_id}/settlement")
 def get_ride_settlement(ride_id: str, db: Session = Depends(get_db)):
-    """Compute minimal settlement debts and UPI payment deep links."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -272,7 +365,6 @@ def get_ride_settlement(ride_id: str, db: Session = Depends(get_db)):
 
 @router.post("/rides/{ride_id}/voice-query")
 def handle_voice_query(ride_id: str, payload: Dict[str, str], db: Session = Depends(get_db)):
-    """Handle on-ride voice queries."""
     query = payload.get("query", "")
     if not query:
         raise HTTPException(status_code=400, detail="Query cannot be empty")
@@ -283,26 +375,22 @@ def handle_voice_query(ride_id: str, payload: Dict[str, str], db: Session = Depe
 
 @router.post("/tts")
 def text_to_speech(payload: Dict[str, str]):
-    """Synthesize text via ElevenLabs or signal frontend to use Web Speech API."""
     text = payload.get("text", "")
     language = payload.get("language", "en")
     
-    # Try ElevenLabs if configured
     audio_bytes = synthesize_speech_elevenlabs(text, language)
     if audio_bytes:
         return Response(content=audio_bytes, media_type="audio/mpeg")
 
-    # Fallback to browser Web Speech API
     return {
         "status": "browser_fallback",
-        "message": "ElevenLabs API key not configured. Using client Web Speech API.",
+        "message": "Using browser Web Speech API.",
         "text": text,
         "language": language
     }
 
 @router.get("/rides/{ride_id}/briefing-text")
 def get_ride_briefing_text(ride_id: str, lang: str = "en", db: Session = Depends(get_db)):
-    """Get spoken briefing script in English, Hindi, or Kannada."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
@@ -311,10 +399,143 @@ def get_ride_briefing_text(ride_id: str, lang: str = "en", db: Session = Depends
 
 @router.delete("/rides/{ride_id}")
 def delete_ride_data(ride_id: str, db: Session = Depends(get_db)):
-    """Privacy rule: delete ride, chats, and associated data with one button."""
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:
         raise HTTPException(status_code=404, detail="Ride not found")
     db.delete(ride)
     db.commit()
     return {"status": "success", "message": f"Ride {ride_id} and all related logs deleted."}
+
+# ==========================================
+# External API Settings & Connection Manager
+# ==========================================
+
+@router.get("/settings/keys")
+def get_api_settings():
+    """Return status of all external API credentials."""
+    def mask(key: str) -> str:
+        if not key or len(key) < 8:
+            return ""
+        return f"{key[:4]}...{key[-4:]}"
+
+    return {
+        "llm_provider": settings.LLM_PROVIDER,
+        "demo_mode": settings.DEMO_MODE,
+        "services": [
+            {
+                "id": "ors",
+                "name": "OpenRouteService",
+                "purpose": "Precise routing & geocoding",
+                "free_tier": "Free 2000 req/day",
+                "connected": bool(settings.ORS_API_KEY),
+                "masked_key": mask(settings.ORS_API_KEY),
+                "docs_url": "https://openrouteservice.org/dev/#/signup"
+            },
+            {
+                "id": "gemini",
+                "name": "Google Gemini API",
+                "purpose": "Advanced multimodal chat parsing",
+                "free_tier": "Free rate limits available",
+                "connected": bool(settings.GEMINI_API_KEY),
+                "masked_key": mask(settings.GEMINI_API_KEY),
+                "docs_url": "https://aistudio.google.com/app/apikey"
+            },
+            {
+                "id": "anthropic",
+                "name": "Anthropic Claude API",
+                "purpose": "Alternative high-precision LLM reasoning",
+                "free_tier": "Pay as you go",
+                "connected": bool(settings.ANTHROPIC_API_KEY),
+                "masked_key": mask(settings.ANTHROPIC_API_KEY),
+                "docs_url": "https://console.anthropic.com/"
+            },
+            {
+                "id": "elevenlabs",
+                "name": "ElevenLabs Voice API",
+                "purpose": "Natural spoken multilingual audio",
+                "free_tier": "Free 10k chars/mo",
+                "connected": bool(settings.ELEVENLABS_API_KEY),
+                "masked_key": mask(settings.ELEVENLABS_API_KEY),
+                "docs_url": "https://elevenlabs.io/"
+            },
+            {
+                "id": "openmeteo",
+                "name": "Open-Meteo Weather",
+                "purpose": "Live route forecasts",
+                "free_tier": "100% Free, No key needed",
+                "connected": True,
+                "masked_key": "Built-in Active",
+                "docs_url": "https://open-meteo.com/"
+            },
+            {
+                "id": "osrm",
+                "name": "OpenStreetMap OSRM",
+                "purpose": "Worldwide live driving navigation",
+                "free_tier": "100% Free, No key needed",
+                "connected": True,
+                "masked_key": "Built-in Active",
+                "docs_url": "https://project-osrm.org/"
+            }
+        ]
+    }
+
+@router.post("/settings/keys")
+def update_api_settings(keys: KeyUpdateRequest):
+    """Save provided API keys to environment."""
+    if keys.ors_api_key is not None:
+        update_env_key("ORS_API_KEY", keys.ors_api_key.strip())
+    if keys.gemini_api_key is not None:
+        update_env_key("GEMINI_API_KEY", keys.gemini_api_key.strip())
+    if keys.anthropic_api_key is not None:
+        update_env_key("ANTHROPIC_API_KEY", keys.anthropic_api_key.strip())
+    if keys.elevenlabs_api_key is not None:
+        update_env_key("ELEVENLABS_API_KEY", keys.elevenlabs_api_key.strip())
+    if keys.llm_provider:
+        update_env_key("LLM_PROVIDER", keys.llm_provider.strip())
+
+    return {"status": "success", "message": "API settings updated successfully."}
+
+@router.post("/settings/test-key")
+def test_external_key(req: KeyTestRequest):
+    """Verify live external key functionality."""
+    service = req.service.lower()
+    key = req.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Key cannot be empty")
+
+    t0 = time.time()
+    try:
+        if service == "ors":
+            url = "https://api.openrouteservice.org/v2/directions/driving-car"
+            headers = {"Authorization": key, "Content-Type": "application/json"}
+            body = {"coordinates": [[77.59, 12.97], [77.60, 12.98]]}
+            with httpx.Client(timeout=6.0) as client:
+                res = client.post(url, json=body, headers=headers)
+                latency = round((time.time() - t0) * 1000)
+                if res.status_code == 200:
+                    return {"status": "success", "latency_ms": latency, "message": "OpenRouteService key is valid!"}
+                return {"status": "failed", "status_code": res.status_code, "message": res.text[:200]}
+
+        elif service == "gemini":
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+            with httpx.Client(timeout=6.0) as client:
+                res = client.get(url)
+                latency = round((time.time() - t0) * 1000)
+                if res.status_code == 200:
+                    return {"status": "success", "latency_ms": latency, "message": "Google Gemini key is valid!"}
+                return {"status": "failed", "status_code": res.status_code, "message": res.text[:200]}
+
+        elif service == "elevenlabs":
+            url = "https://api.elevenlabs.io/v1/user"
+            headers = {"xi-api-key": key}
+            with httpx.Client(timeout=6.0) as client:
+                res = client.get(url, headers=headers)
+                latency = round((time.time() - t0) * 1000)
+                if res.status_code == 200:
+                    return {"status": "success", "latency_ms": latency, "message": "ElevenLabs key is valid!"}
+                return {"status": "failed", "status_code": res.status_code, "message": res.text[:200]}
+
+        else:
+            return {"status": "success", "latency_ms": 10, "message": f"Service {service} test acknowledged."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

@@ -1,15 +1,15 @@
 import os
 from pathlib import Path
 from pydantic import BaseModel
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 
-# Load .env file from project root or backend
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(ROOT_DIR / ".env")
+ENV_FILE = ROOT_DIR / ".env"
+load_dotenv(ENV_FILE)
 
 class Settings(BaseModel):
     PROJECT_NAME: str = "Ride Captain's Copilot"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.1.0"
     API_PREFIX: str = "/api"
     
     # LLM Settings
@@ -24,8 +24,19 @@ class Settings(BaseModel):
     GOOGLE_CALENDAR_CREDENTIALS: str = os.getenv("GOOGLE_CALENDAR_CREDENTIALS", "")
     
     # Environment & Database
-    DEMO_MODE: bool = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+    DEMO_MODE: bool = os.getenv("DEMO_MODE", "false").lower() in ("true", "1", "yes")
     DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{ROOT_DIR / 'ride_copilot.db'}")
     SAMPLE_DATA_DIR: Path = ROOT_DIR / "sample_data"
 
 settings = Settings()
+
+def update_env_key(key: str, value: str):
+    """Dynamically update an API key in memory and in .env file."""
+    if hasattr(settings, key):
+        setattr(settings, key, value)
+    os.environ[key] = value
+    if ENV_FILE.exists():
+        try:
+            set_key(str(ENV_FILE), key, value)
+        except Exception:
+            pass

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { History, Shield, Filter, Trash2, CheckCircle2, Clock, RefreshCw, AlertTriangle } from 'lucide-react';
-import { ActionLog } from '../types';
+import { History, Trash2, RefreshCw } from 'lucide-react';
+import type { ActionLog } from '../types';
 import { fetchActionLogs, deleteRide } from '../api';
 
 interface ActionLogTabProps {
@@ -55,28 +55,28 @@ export const ActionLogTab: React.FC<ActionLogTabProps> = ({ rideId, onRideDelete
       case 'SUCCESS':
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
       case 'BLOCKED_FOR_APPROVAL':
-        return 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse';
+        return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
       case 'EXECUTED_ON_APPROVAL':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+        return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
       case 'REJECTED':
-        return 'bg-rose-500/20 text-rose-400 border-rose-500/40';
+        return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
       default:
         return 'bg-slate-700 text-slate-300 border-slate-600';
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-5">
       {/* Header & Controls */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <History className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white">Immutable Action Audit Log</h2>
+              <History className="w-4 h-4 text-amber-400" />
+              <h2 className="text-base font-bold text-white">Action Audit Trail</h2>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Every MCP tool call, input argument, output payload, and captain approval decision is permanently logged.
+              Tool execution history, input arguments, output payloads, and approval decisions.
             </p>
           </div>
 
@@ -108,10 +108,10 @@ export const ActionLogTab: React.FC<ActionLogTabProps> = ({ rideId, onRideDelete
             ) : (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
               >
                 <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>Delete Ride & Chat Data</span>
+                <span>Delete Ride Data</span>
               </button>
             )}
           </div>
@@ -136,7 +136,7 @@ export const ActionLogTab: React.FC<ActionLogTabProps> = ({ rideId, onRideDelete
             <option value="SUCCESS">Auto-Executed Reads (SUCCESS)</option>
             <option value="BLOCKED_FOR_APPROVAL">Blocked for Approval</option>
             <option value="EXECUTED_ON_APPROVAL">Executed on Approval</option>
-            <option value="REJECTED">Rejected by Captain</option>
+            <option value="REJECTED">Rejected</option>
           </select>
         </div>
       </div>
@@ -149,7 +149,7 @@ export const ActionLogTab: React.FC<ActionLogTabProps> = ({ rideId, onRideDelete
               <tr>
                 <th className="py-3 px-4">Timestamp</th>
                 <th className="py-3 px-4">Tool Invocations</th>
-                <th className="py-3 px-4">Status & Gate</th>
+                <th className="py-3 px-4">Status &amp; Gate</th>
                 <th className="py-3 px-4">Input Summary</th>
                 <th className="py-3 px-4">Output / Result</th>
                 <th className="py-3 px-4">Actor</th>
@@ -188,11 +188,7 @@ export const ActionLogTab: React.FC<ActionLogTabProps> = ({ rideId, onRideDelete
                     </td>
 
                     <td className="py-3 px-4 whitespace-nowrap">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                        log.approved_by === 'CAPTAIN'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-slate-800 text-slate-400'
-                      }`}>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-slate-800 text-slate-400">
                         {log.approved_by}
                       </span>
                     </td>

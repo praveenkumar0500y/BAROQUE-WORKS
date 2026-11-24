@@ -40,6 +40,7 @@ export interface PendingAction {
   payload: Record<string, any>;
   result: Record<string, any>;
   created_at: string;
+  resolved_at?: string;
 }
 
 export interface ActionLog {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Volume2, Radio, AlertTriangle, ShieldCheck, Fuel, CloudSun, CheckCircle2, Languages } from 'lucide-react';
-import { RideDetails } from '../types';
+import React, { useState } from 'react';
+import { Mic, MicOff, Volume2, Radio, AlertTriangle, Languages, CheckCircle2 } from 'lucide-react';
+import type { RideDetails } from '../types';
 import { sendVoiceQuery, fetchBriefingText } from '../api';
 
 interface RideModeTabProps {
@@ -11,15 +11,11 @@ interface RideModeTabProps {
 export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [response, setResponse] = useState<string>('Ride Captain Copilot standby. Tap the microphone or select a quick query.');
+  const [response, setResponse] = useState<string>('Copilot standby. Tap microphone or select a quick query.');
   const [language, setLanguage] = useState<'en' | 'hi' | 'kn'>('en');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [alertBanner, setAlertBanner] = useState<string | null>(null);
 
-  // Next fuel stop info
-  const fuelStop = ride.stops.find((s) => s.stop_type === 'fuel');
-
-  // Text-to-speech helper (ElevenLabs backend API with browser speechSynthesis fallback)
   const speakText = async (textToSpeak: string, langCode: string = language) => {
     try {
       setIsPlayingAudio(true);
@@ -40,10 +36,9 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
         }
       }
     } catch (e) {
-      console.warn('Backend TTS call failed, falling back to Web Speech API', e);
+      console.warn('Backend TTS call fallback', e);
     }
 
-    // Fallback: Web Speech API
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -56,7 +51,6 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
     }
   };
 
-  // Web Speech API for voice input
   const toggleListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -126,7 +120,7 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
   };
 
   const triggerWeatherAlert = () => {
-    const alertMsg = 'Alert: Approaching Hassan bypass fuel stop. Mountain rain probability in Sakleshpur is 15%. Safe to proceed.';
+    const alertMsg = 'Alert: Approaching next highway fuel stop. Safe riding conditions confirmed.';
     setAlertBanner(alertMsg);
     setResponse(alertMsg);
     speakText(alertMsg);
@@ -139,8 +133,8 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
       <div className="bg-slate-950 border-2 border-amber-500/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-amber-400 animate-pulse" />
-            <h2 className="text-xl font-black text-white tracking-wider uppercase">Ride Mode Cockpit</h2>
+            <Radio className="w-5 h-5 text-amber-400" />
+            <h2 className="text-lg font-black text-white tracking-wider uppercase">Cockpit Voice Mode</h2>
           </div>
 
           {/* Language Selector */}
@@ -153,15 +147,15 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
               className="bg-transparent text-amber-400 text-xs font-bold focus:outline-none cursor-pointer"
             >
               <option value="en" className="bg-slate-900">English</option>
-              <option value="hi" className="bg-slate-900">Hindi (हिंदी)</option>
-              <option value="kn" className="bg-slate-900">Kannada (ಕನ್ನಡ)</option>
+              <option value="hi" className="bg-slate-900">Hindi</option>
+              <option value="kn" className="bg-slate-900">Kannada</option>
             </select>
           </div>
         </div>
 
         {/* Live Alert Banner */}
         {alertBanner && (
-          <div className="mt-4 p-3 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 animate-bounce">
+          <div className="mt-4 p-3 bg-amber-500 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             <span>{alertBanner}</span>
           </div>
@@ -173,14 +167,14 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
             onClick={toggleListening}
             className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl ${
               isListening
-                ? 'bg-rose-600 text-white animate-pulse ring-8 ring-rose-500/30'
+                ? 'bg-rose-600 text-white ring-8 ring-rose-500/30'
                 : 'bg-amber-500 hover:bg-amber-400 text-slate-950 ring-8 ring-amber-500/20'
             }`}
           >
             {isListening ? (
               <>
                 <MicOff className="w-10 h-10 sm:w-12 sm:h-12" />
-                <span className="text-[11px] font-black uppercase mt-1">Listening...</span>
+                <span className="text-[11px] font-black uppercase mt-1">Listening</span>
               </>
             ) : (
               <>
@@ -197,12 +191,12 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
           )}
         </div>
 
-        {/* Copilot Spoken Response Box */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-2">
+        {/* Spoken Response Box */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-bold flex items-center gap-1.5 text-amber-400 uppercase tracking-wider text-[10px]">
-              <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? 'animate-bounce text-emerald-400' : ''}`} />
-              Copilot Voice Response
+              <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? 'text-emerald-400' : ''}`} />
+              Copilot Audio Response
             </span>
             {isPlayingAudio && (
               <span className="text-emerald-400 font-semibold text-[10px]">Playing Audio...</span>
@@ -220,7 +214,7 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
             className="py-3 px-4 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 font-bold text-xs rounded-2xl flex items-center justify-center gap-2 transition"
           >
             <Volume2 className="w-4 h-4" />
-            <span>"Brief Me" Spoken Overview</span>
+            <span>Spoken Overview Briefing</span>
           </button>
 
           <button
@@ -236,45 +230,42 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
       {/* Quick Tap Query Chips */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-          Quick Hands-Free Query Chips (One-Tap Prompts)
+          Quick Hands-Free Query Prompts
         </h3>
         <div className="flex flex-wrap gap-2 text-xs">
           <button
             onClick={() => handleQuery('How far is the next fuel stop?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
           >
-            <Fuel className="w-3.5 h-3.5 text-orange-400" />
-            <span>"How far is the next fuel stop?"</span>
+            "How far is the next fuel stop?"
           </button>
 
           <button
             onClick={() => handleQuery('Will it rain before lunch?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
           >
-            <CloudSun className="w-3.5 h-3.5 text-amber-400" />
-            <span>"Will it rain before lunch?"</span>
+            "Will it rain before lunch?"
           </button>
 
           <button
             onClick={() => handleQuery('Who has the smallest tank?')}
-            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-slate-950 hover:bg-slate-800 text-slate-200 border border-slate-800 rounded-xl transition"
           >
-            <span>"Who has the smallest tank?"</span>
+            "Who has the smallest tank?"
           </button>
 
           <button
             onClick={() => handleQuery('confirm')}
-            className="px-3.5 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 rounded-xl transition flex items-center gap-1.5 font-bold"
+            className="px-3.5 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 rounded-xl transition font-bold"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Voice Command: "Confirm"</span>
+            Voice Command: "Confirm"
           </button>
 
           <button
             onClick={() => handleQuery('cancel')}
-            className="px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 rounded-xl transition flex items-center gap-1.5 font-bold"
+            className="px-3.5 py-2 bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 rounded-xl transition font-bold"
           >
-            <span>Voice Command: "Cancel"</span>
+            Voice Command: "Cancel"
           </button>
         </div>
       </div>

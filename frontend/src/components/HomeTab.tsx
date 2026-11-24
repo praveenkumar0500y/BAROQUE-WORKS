@@ -44,7 +44,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({ demoMode, onRideLoaded, setAct
     try {
       setLoading(true);
       setError(null);
-      const res = await parseChatAndPlan(chatText, demoMode);
+      const res = await parseChatAndPlan(chatText, { demoMode });
       if (res.ride_id) {
         onRideLoaded(res.ride_id);
         setActiveTab('parsed');

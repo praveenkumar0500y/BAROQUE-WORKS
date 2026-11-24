@@ -1,6 +1,21 @@
 import React, { useState } from 'react';
-import { Mic, MicOff, Volume2, Radio, AlertTriangle, Languages, CheckCircle2 } from 'lucide-react';
-import type { RideDetails } from '../types';
+import {
+  Mic,
+  MicOff,
+  Volume2,
+  Radio,
+  AlertTriangle,
+  Languages,
+  CheckCircle2,
+  Fuel,
+  Compass,
+  CloudSun,
+  ShieldAlert,
+  Zap,
+  Activity,
+  AudioWaveform as Waveform
+} from 'lucide-react';
+import type { RideDetails, Rider } from '../types';
 import { sendVoiceQuery, fetchBriefingText } from '../api';
 
 interface RideModeTabProps {
@@ -15,6 +30,16 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
   const [language, setLanguage] = useState<'en' | 'hi' | 'kn'>('en');
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [alertBanner, setAlertBanner] = useState<string | null>(null);
+
+  const confirmedRiders = ride.riders.filter((r) => r.status === 'confirmed');
+  const bottleneckRider = confirmedRiders.reduce<Rider | null>((min, cur) => {
+    if (!min) return cur;
+    return (cur.tank_range_km || 999) < (min.tank_range_km || 999) ? cur : min;
+  }, null);
+
+  const safeRangeKm = bottleneckRider?.tank_range_km
+    ? (bottleneckRider.tank_range_km * 0.8).toFixed(1)
+    : '241.1';
 
   const speakText = async (textToSpeak: string, langCode: string = language) => {
     try {
@@ -71,7 +96,7 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
 
       recognition.onstart = () => {
         setIsListening(true);
-        setTranscript('Listening...');
+        setTranscript('Listening to voice query...');
       };
 
       recognition.onresult = async (event: any) => {
@@ -128,105 +153,155 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Cockpit Mode Top Status */}
-      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center gap-2">
-            <Radio className="w-5 h-5 text-sky-400" />
-            <h2 className="text-base font-bold text-white tracking-wider uppercase">Cockpit Voice Mode</h2>
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+      {/* Cockpit Digital Instrument HUD */}
+      <div className="bg-[#0b0e14] border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        {/* Top HUD Telemetry Ribbon */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#1e2533] pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-extrabold text-white tracking-widest uppercase font-mono">
+                  COCKPIT HUD
+                </span>
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold">
+                  ACTIVE
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono">
+                Hands-Free Helmet Voice Telemetry
+              </p>
+            </div>
           </div>
 
           {/* Language Selector */}
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl">
-            <Languages className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center gap-2 bg-[#12161f] border border-[#222a38] px-3 py-1.5 rounded-xl">
+            <Languages className="w-4 h-4 text-amber-400" />
             <span className="text-xs text-slate-300 font-medium">Language:</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as any)}
-              className="bg-transparent text-sky-400 text-xs font-semibold focus:outline-none cursor-pointer"
+              className="bg-transparent text-amber-400 text-xs font-bold font-mono focus:outline-none cursor-pointer"
             >
-              <option value="en" className="bg-slate-900">English</option>
-              <option value="hi" className="bg-slate-900">Hindi</option>
-              <option value="kn" className="bg-slate-900">Kannada</option>
+              <option value="en" className="bg-[#0e1219]">English (en)</option>
+              <option value="hi" className="bg-[#0e1219]">Hindi (hi)</option>
+              <option value="kn" className="bg-[#0e1219]">Kannada (kn)</option>
             </select>
           </div>
         </div>
 
-        {/* Live Alert Banner */}
+        {/* Live Gauges Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-5">
+          <div className="bg-[#12161f] border border-[#1e2533] p-3 rounded-xl">
+            <span className="text-[10px] uppercase font-mono text-slate-500 block">Corridor Length</span>
+            <span className="text-lg font-bold text-white font-mono">{ride.total_distance_km} km</span>
+          </div>
+
+          <div className="bg-[#12161f] border border-[#1e2533] p-3 rounded-xl">
+            <span className="text-[10px] uppercase font-mono text-amber-400 block">Safe Leg Cap</span>
+            <span className="text-lg font-bold text-amber-400 font-mono">{safeRangeKm} km</span>
+          </div>
+
+          <div className="bg-[#12161f] border border-[#1e2533] p-3 rounded-xl">
+            <span className="text-[10px] uppercase font-mono text-slate-500 block">Weather Status</span>
+            <span className={`text-base font-bold font-mono ${
+              ride.weather_verdict === 'GO' ? 'text-emerald-400' : 'text-amber-400'
+            }`}>
+              {ride.weather_verdict || 'GO'}
+            </span>
+          </div>
+
+          <div className="bg-[#12161f] border border-[#1e2533] p-3 rounded-xl">
+            <span className="text-[10px] uppercase font-mono text-slate-500 block">Group Pace</span>
+            <span className="text-base font-bold text-slate-200 font-mono truncate">{ride.pace || 'Brisk'}</span>
+          </div>
+        </div>
+
+        {/* Highway Alert Banner */}
         {alertBanner && (
-          <div className="mt-4 p-3 bg-sky-600 text-white font-semibold rounded-xl text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" />
+          <div className="mb-6 p-3.5 bg-amber-500/20 border border-amber-500/40 text-amber-200 font-semibold rounded-xl text-xs flex items-center gap-2.5 animate-pulse">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <span>{alertBanner}</span>
           </div>
         )}
 
-        {/* Center Big Voice Control Button */}
+        {/* Huge Glove-Friendly Tactile Voice Button */}
         <div className="my-8 flex flex-col items-center justify-center space-y-4">
           <button
             onClick={toggleListening}
-            className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-xl ${
+            className={`w-32 h-32 sm:w-40 sm:h-40 rounded-full flex flex-col items-center justify-center transition-all duration-300 shadow-2xl relative ${
               isListening
-                ? 'bg-rose-600 text-white ring-8 ring-rose-500/30'
-                : 'bg-sky-600 hover:bg-sky-500 text-white ring-8 ring-sky-500/20'
+                ? 'bg-rose-600 text-white ring-8 ring-rose-500/30 scale-105'
+                : 'bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 ring-8 ring-amber-500/20 hover:scale-105'
             }`}
           >
             {isListening ? (
               <>
-                <MicOff className="w-10 h-10 sm:w-12 sm:h-12" />
-                <span className="text-[11px] font-bold uppercase mt-1">Listening</span>
+                <MicOff className="w-12 h-12 sm:w-14 sm:h-14 animate-pulse" />
+                <span className="text-[11px] font-mono font-extrabold uppercase mt-1 tracking-wider">
+                  Listening
+                </span>
               </>
             ) : (
               <>
-                <Mic className="w-10 h-10 sm:w-12 sm:h-12" />
-                <span className="text-[11px] font-bold uppercase mt-1">Tap To Speak</span>
+                <Mic className="w-12 h-12 sm:w-14 sm:h-14" />
+                <span className="text-[11px] font-mono font-extrabold uppercase mt-1 tracking-wider">
+                  Tap To Speak
+                </span>
               </>
             )}
           </button>
 
           {transcript && (
-            <div className="text-xs font-mono text-sky-400 bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800">
+            <div className="text-xs font-mono text-amber-400 bg-[#12161f] px-4 py-2 rounded-full border border-amber-500/30 shadow-md">
               "{transcript}"
             </div>
           )}
         </div>
 
         {/* Spoken Response Box */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-inner">
+        <div className="bg-[#12161f] border border-[#1e2533] rounded-2xl p-5 space-y-2 shadow-inner">
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <span className="font-bold flex items-center gap-1.5 text-sky-400 uppercase tracking-wider text-[10px]">
-              <Volume2 className={`w-3.5 h-3.5 ${isPlayingAudio ? 'text-emerald-400 animate-pulse' : ''}`} />
+            <span className="font-bold flex items-center gap-1.5 text-amber-400 uppercase tracking-wider text-[10px] font-mono">
+              <Volume2 className={`w-4 h-4 ${isPlayingAudio ? 'text-amber-400 animate-pulse' : 'text-slate-400'}`} />
               Copilot Audio Response
             </span>
             {isPlayingAudio && (
-              <span className="text-emerald-400 font-mono text-[11px]">Speaking...</span>
+              <span className="text-amber-400 font-mono text-[11px] animate-pulse">
+                Audio Synthesizing...
+              </span>
             )}
           </div>
-          <p className="text-sm text-slate-100 font-medium leading-relaxed">{response}</p>
+          <p className="text-sm text-slate-100 font-medium leading-relaxed font-sans">{response}</p>
         </div>
 
-        {/* Action Controls & Quick Queries */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 space-y-3">
+        {/* Actions & Quick Query Chips */}
+        <div className="mt-6 pt-5 border-t border-[#1e2533] space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               onClick={handleBriefMe}
-              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2"
+              className="px-5 py-2.5 bg-[#18202d] hover:bg-[#222c3d] text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm"
             >
               <Volume2 className="w-4 h-4" />
-              <span>Spoken Ride Briefing</span>
+              <span>Play Spoken Ride Briefing</span>
             </button>
 
             <button
               onClick={triggerWeatherAlert}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-medium transition"
+              className="px-4 py-2 bg-[#12161f] hover:bg-[#18202d] text-slate-300 border border-[#232b38] rounded-xl text-xs font-medium transition"
             >
               Simulate Highway Alert
             </button>
           </div>
 
           {/* Quick Query Chips */}
-          <div className="pt-2">
-            <span className="text-[11px] text-slate-500 font-medium block mb-2">Hands-Free Quick Queries:</span>
+          <div>
+            <span className="text-[11px] text-slate-400 font-mono block mb-2 uppercase tracking-wider">
+              Quick Hands-Free Prompts:
+            </span>
             <div className="flex flex-wrap gap-2">
               {[
                 'How far is the next fuel stop?',
@@ -241,7 +316,7 @@ export const RideModeTab: React.FC<RideModeTabProps> = ({ ride, onRefreshRide })
                     setTranscript(chip);
                     handleQuery(chip);
                   }}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700 rounded-xl text-xs transition"
+                  className="px-3 py-1.5 bg-[#12161f] hover:bg-[#18202d] text-slate-300 border border-[#222a38] hover:border-amber-500/40 rounded-xl text-xs font-mono transition"
                 >
                   {chip}
                 </button>

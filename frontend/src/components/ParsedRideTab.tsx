@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, RefreshCw, Fuel, ArrowRight } from 'lucide-react';
+import {
+  Users,
+  Fuel,
+  ArrowRight,
+  ShieldAlert,
+  Gauge,
+  CheckCircle2,
+  HelpCircle,
+  XCircle,
+  Star,
+  Bike,
+  Activity,
+  Zap,
+  Info
+} from 'lucide-react';
 import type { RideDetails, Rider, BikeSpec } from '../types';
 import { updateRider, fetchBikes } from '../api';
 
@@ -9,219 +23,288 @@ interface ParsedRideTabProps {
   setActiveTab: (tab: string) => void;
 }
 
-export const ParsedRideTab: React.FC<ParsedRideTabProps> = ({ ride, onRefreshRide, setActiveTab }) => {
+export const ParsedRideTab: React.FC<ParsedRideTabProps> = ({
+  ride,
+  onRefreshRide,
+  setActiveTab,
+}) => {
   const [bikes, setBikes] = useState<BikeSpec[]>([]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBikes().then(setBikes).catch(console.error);
   }, []);
 
   const confirmedRiders = ride.riders.filter((r) => r.status === 'confirmed');
-  const smallestRider = confirmedRiders.reduce<Rider | null>((min, cur) => {
+  const undecidedRiders = ride.riders.filter((r) => r.status === 'undecided');
+  const declinedRiders = ride.riders.filter((r) => r.status === 'declined');
+
+  // Find rider with smallest tank range in confirmed riders
+  const bottleneckRider = confirmedRiders.reduce<Rider | null>((min, cur) => {
     if (!min) return cur;
     return (cur.tank_range_km || 999) < (min.tank_range_km || 999) ? cur : min;
   }, null);
 
+  const safeRangeKm = bottleneckRider?.tank_range_km
+    ? (bottleneckRider.tank_range_km * 0.8).toFixed(1)
+    : '241.1';
+
   const handleStatusChange = async (rider: Rider, newStatus: string) => {
     try {
+      setUpdatingId(rider.id);
       await updateRider(rider.id, { status: newStatus });
       onRefreshRide();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   const handleBikeChange = async (rider: Rider, bikeModel: string) => {
     try {
+      setUpdatingId(rider.id);
       await updateRider(rider.id, { bike_model: bikeModel });
       onRefreshRide();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   const handleCaptainToggle = async (rider: Rider) => {
     try {
+      setUpdatingId(rider.id);
       await updateRider(rider.id, { is_captain: !rider.is_captain });
       onRefreshRide();
     } catch (err) {
       console.error(err);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
-      {/* Overview Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+    <div className="space-y-6 animate-fade-in">
+      {/* Header & Bottleneck Spotlight Banner */}
+      <div className="bg-[#12161f] border border-[#1e2533] rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1e2533] pb-4">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
-              Rider Roster Specifications
-            </span>
-            <h2 className="text-xl sm:text-2xl font-bold text-white mt-1">{ride.title}</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 font-mono">
+                Fleet Telemetry &amp; Tank Specifications
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1 tracking-tight">
+              {ride.title} — Rider Roster
+            </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {ride.start_location} to {ride.destination} | Date: <strong className="text-slate-200">{ride.ride_date}</strong> | Start: <strong className="text-slate-200">{ride.start_time}</strong>
+              Extracted from group chat: <strong className="text-slate-200">{ride.riders.length} riders total</strong> ({confirmedRiders.length} confirmed, {undecidedRiders.length} undecided)
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => setActiveTab('route')}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition"
+              className="px-4 py-2 bg-[#18202d] hover:bg-[#202b3d] text-slate-200 font-semibold text-xs rounded-xl border border-[#253247] transition"
             >
-              Route &amp; Map Planner
+              Route Planner
             </button>
             <button
               onClick={() => setActiveTab('approvals')}
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl transition shadow-sm"
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl transition shadow-md shadow-amber-500/20"
             >
-              Approvals Queue
+              Approvals Gate
             </button>
           </div>
         </div>
 
-        {/* Smallest Tank Range Alert */}
-        {smallestRider && (
-          <div className="mt-4 p-3.5 bg-slate-950 border border-sky-500/30 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 bg-sky-500/10 rounded-lg text-sky-400">
-                <Fuel className="w-4 h-4" />
+        {/* Bottleneck Motorcycle Callout Card */}
+        {bottleneckRider && (
+          <div className="p-4 bg-gradient-to-r from-[#171410] via-[#151821] to-[#12161f] border border-amber-500/40 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-amber-400 shrink-0">
+                <Fuel className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-sky-400 font-bold">Group Bottleneck Range: </span>
-                <span className="text-slate-300">
-                  {smallestRider.name} ({smallestRider.bike_model}) has {smallestRider.tank_range_km?.toFixed(1)} km range.
-                </span>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold text-xs uppercase tracking-wider font-mono">
+                    GROUP BOTTLENECK VEHICLE IDENTIFIED
+                  </span>
+                  <span className="bg-amber-500/20 text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold">
+                    Limits Group Range
+                  </span>
+                </div>
+                <p className="text-sm text-white font-semibold">
+                  {bottleneckRider.name}'s <span className="text-amber-400">{bottleneckRider.bike_model}</span> has the shortest tank range ({bottleneckRider.tank_range_km?.toFixed(1)} km).
+                </p>
+                <p className="text-xs text-slate-400">
+                  Tank: {bottleneckRider.tank_litres}L • Highway Mileage: {bottleneckRider.mileage_kmpl} kmpl
+                </p>
               </div>
             </div>
-            <div className="text-right">
-              <span className="bg-sky-500/10 text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-full font-mono text-[11px] font-semibold">
-                Safe Leg Cap: {((smallestRider.tank_range_km || 300) * 0.8).toFixed(1)} km (0.8x Rule)
+
+            <div className="bg-[#0e1219] p-3 rounded-xl border border-amber-500/30 text-right shrink-0">
+              <span className="text-[10px] uppercase font-mono text-slate-400 block">
+                0.8x Safe Highway Cap
+              </span>
+              <span className="text-xl font-extrabold text-amber-400 font-mono">
+                {safeRangeKm} km
               </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Riders Roster Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between">
+      {/* Roster Table / Card Grid */}
+      <div className="bg-[#12161f] border border-[#1e2533] rounded-2xl overflow-hidden shadow-xl">
+        <div className="px-5 py-4 border-b border-[#1e2533] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-sky-400" />
-            <h3 className="text-white font-bold text-sm">Participants &amp; Motorcycle Specifications</h3>
-            <span className="text-[11px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-              {ride.riders.length} riders
-            </span>
+            <Users className="w-4 h-4 text-amber-400" />
+            <h3 className="text-sm font-bold text-white uppercase font-mono tracking-wider">
+              Fleet Specifications ({ride.riders.length} Motorcycles)
+            </h3>
           </div>
-
-          <button
-            onClick={onRefreshRide}
-            className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 transition"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reload</span>
-          </button>
+          <span className="text-xs text-slate-400">
+            Click status or bike model to override extracted values
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/70 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+            <thead className="bg-[#0e1219] text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-[#1e2533]">
               <tr>
-                <th className="py-3 px-3">Rider Name</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3">Motorcycle Model</th>
-                <th className="py-3 px-3">Tank (L)</th>
-                <th className="py-3 px-3">Mileage</th>
-                <th className="py-3 px-3">Tank Range</th>
-                <th className="py-3 px-3">UPI ID</th>
-                <th className="py-3 px-3">Role</th>
+                <th className="py-3 px-4">Rider</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">Motorcycle Model</th>
+                <th className="py-3 px-4 text-center">Tank</th>
+                <th className="py-3 px-4 text-center">Mileage</th>
+                <th className="py-3 px-4 text-right">Max Range</th>
+                <th className="py-3 px-4 text-right">0.8x Safe Range</th>
+                <th className="py-3 px-4 text-center">Role</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {ride.riders.map((r) => {
-                const isBottleneck = smallestRider?.id === r.id;
+            <tbody className="divide-y divide-[#1e2533]">
+              {ride.riders.map((rider) => {
+                const isConfirmed = rider.status === 'confirmed';
+                const isUndecided = rider.status === 'undecided';
+                const isDeclined = rider.status === 'declined';
+                const isBottleneck = isConfirmed && rider.id === bottleneckRider?.id;
+
                 return (
                   <tr
-                    key={r.id}
-                    className={`hover:bg-slate-800/40 transition ${
-                      isBottleneck ? 'bg-sky-950/20' : ''
+                    key={rider.id}
+                    className={`hover:bg-[#161c27] transition ${
+                      isBottleneck ? 'bg-amber-500/[0.04]' : ''
                     }`}
                   >
-                    <td className="py-3 px-3 font-medium text-white flex items-center gap-1.5">
-                      <span>{r.name}</span>
-                      {r.is_captain && (
-                        <span className="bg-sky-500/10 text-sky-400 text-[10px] font-bold px-1.5 py-0.2 rounded border border-sky-500/20">
-                          Captain
-                        </span>
-                      )}
+                    {/* Rider Name */}
+                    <td className="py-3.5 px-4 font-semibold text-white">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                          rider.is_captain
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-[#1a212e] text-slate-300'
+                        }`}>
+                          {rider.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-100 font-bold">{rider.name}</span>
+                            {rider.is_captain && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[9px] font-bold uppercase font-mono">
+                                Captain
+                              </span>
+                            )}
+                            {isBottleneck && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500 text-slate-950 font-extrabold text-[9px] uppercase font-mono">
+                                Limiting Bike
+                              </span>
+                            )}
+                          </div>
+                          {rider.phone && (
+                            <span className="text-[10px] text-slate-500 font-mono block">
+                              {rider.phone}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
 
-                    <td className="py-3 px-3">
+                    {/* Status Select */}
+                    <td className="py-3.5 px-4">
                       <select
-                        value={r.status}
-                        onChange={(e) => handleStatusChange(r, e.target.value)}
-                        className={`bg-slate-950 border rounded-lg px-2 py-1 text-xs font-semibold focus:outline-none ${
-                          r.status === 'confirmed'
-                            ? 'text-emerald-400 border-emerald-500/30'
-                            : r.status === 'undecided'
-                            ? 'text-amber-400 border-amber-500/30'
-                            : 'text-rose-400 border-rose-500/30'
+                        value={rider.status}
+                        onChange={(e) => handleStatusChange(rider, e.target.value)}
+                        className={`text-[11px] font-semibold rounded-lg px-2.5 py-1 border focus:outline-none cursor-pointer transition ${
+                          isConfirmed
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : isUndecided
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
                         }`}
                       >
-                        <option value="confirmed">Confirmed</option>
-                        <option value="undecided">Undecided</option>
-                        <option value="declined">Declined</option>
+                        <option value="confirmed" className="bg-[#0e1219] text-emerald-400">Confirmed</option>
+                        <option value="undecided" className="bg-[#0e1219] text-amber-400">Undecided</option>
+                        <option value="declined" className="bg-[#0e1219] text-slate-400">Declined</option>
                       </select>
                     </td>
 
-                    <td className="py-3 px-3">
+                    {/* Bike Model Select */}
+                    <td className="py-3.5 px-4">
                       <select
-                        value={r.bike_model || ''}
-                        onChange={(e) => handleBikeChange(r, e.target.value)}
-                        className="bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-sky-500 max-w-[180px]"
+                        value={rider.bike_model || ''}
+                        onChange={(e) => handleBikeChange(rider, e.target.value)}
+                        className="bg-[#0e1219] border border-[#232b3b] rounded-lg px-2.5 py-1 text-slate-200 text-xs focus:outline-none focus:border-amber-500 transition max-w-[200px] truncate"
                       >
+                        <option value="">Select Motorcycle...</option>
                         {bikes.map((b) => (
                           <option key={b.model} value={b.model}>
-                            {b.model}
+                            {b.model} ({b.tank_litres}L, {b.mileage_kmpl} kmpl)
                           </option>
                         ))}
                       </select>
                     </td>
 
-                    <td className="py-3 px-3 font-mono text-slate-300">
-                      {r.tank_litres ? `${r.tank_litres} L` : '-'}
+                    {/* Tank Litres */}
+                    <td className="py-3.5 px-4 text-center font-mono text-slate-300">
+                      {rider.tank_litres ? `${rider.tank_litres} L` : '—'}
                     </td>
 
-                    <td className="py-3 px-3 font-mono text-slate-300">
-                      {r.mileage_kmpl ? `${r.mileage_kmpl} km/L` : '-'}
+                    {/* Mileage */}
+                    <td className="py-3.5 px-4 text-center font-mono text-slate-300">
+                      {rider.mileage_kmpl ? `${rider.mileage_kmpl} kmpl` : '—'}
                     </td>
 
-                    <td className="py-3 px-3 font-mono">
-                      <span
-                        className={
-                          isBottleneck
-                            ? 'text-sky-400 font-bold underline decoration-sky-500'
-                            : 'text-slate-300'
-                        }
-                      >
-                        {r.tank_range_km ? `${r.tank_range_km.toFixed(1)} km` : '-'}
-                      </span>
+                    {/* Max Range */}
+                    <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-200">
+                      {rider.tank_range_km ? `${rider.tank_range_km.toFixed(1)} km` : '—'}
                     </td>
 
-                    <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
-                      {r.upi_id || 'Not provided'}
+                    {/* 0.8x Safe Range */}
+                    <td className="py-3.5 px-4 text-right font-mono font-bold">
+                      {rider.tank_range_km ? (
+                        <span className={isBottleneck ? 'text-amber-400' : 'text-slate-300'}>
+                          {(rider.tank_range_km * 0.8).toFixed(1)} km
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
 
-                    <td className="py-3 px-3">
+                    {/* Captain Toggle */}
+                    <td className="py-3.5 px-4 text-center">
                       <button
-                        onClick={() => handleCaptainToggle(r)}
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border transition ${
-                          r.is_captain
-                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                        onClick={() => handleCaptainToggle(rider)}
+                        className={`p-1.5 rounded-lg border transition ${
+                          rider.is_captain
+                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30'
+                            : 'bg-[#18202d] text-slate-500 border-[#242e40] hover:text-slate-300'
                         }`}
+                        title={rider.is_captain ? 'Captain (Click to revoke)' : 'Designate as Ride Captain'}
                       >
-                        {r.is_captain ? 'Ride Captain' : 'Make Captain'}
+                        <Star className={`w-3.5 h-3.5 ${rider.is_captain ? 'fill-amber-400' : ''}`} />
                       </button>
                     </td>
                   </tr>
@@ -229,19 +312,6 @@ export const ParsedRideTab: React.FC<ParsedRideTabProps> = ({ ride, onRefreshRid
               })}
             </tbody>
           </table>
-        </div>
-
-        <div className="flex items-center justify-between pt-3 border-t border-slate-800/80 text-xs text-slate-400">
-          <span>
-            Tank specs update automatically when bike model changes.
-          </span>
-          <button
-            onClick={() => setActiveTab('route')}
-            className="text-sky-400 hover:text-sky-300 flex items-center gap-1 font-semibold transition"
-          >
-            <span>Back to Map View</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
     </div>

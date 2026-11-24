@@ -1,32 +1,51 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+@layer base {
+  :root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-display: 'Space Grotesk', -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0b0e14;
+    color: #e2e8f0;
+  }
+}
+
 /* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #0d1118;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.7);
+  background: #232c3d;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 0.9);
+  background: #37445c;
 }
 
-/* Leaflet Container & Markers */
+/* Leaflet Container & Dark-mode Tiles */
 .leaflet-container {
   width: 100%;
   height: 100%;
   border-radius: 0.75rem;
   z-index: 10;
-  background-color: #0b1120;
+  background-color: #0b0e14;
+}
+
+/* Sophisticated Dark Mode Map Filter for standard OSM tiles */
+.leaflet-tile-pane {
+  filter: brightness(0.65) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.25) brightness(0.75);
 }
 
 .custom-location-pin {
@@ -47,20 +66,36 @@
   z-index: 999 !important;
 }
 
-/* Leaflet popup styling override for clean slate/glass look */
+/* Dark theme popup styling */
 .leaflet-popup-content-wrapper {
-  background: #ffffff !important;
-  color: #0f172a !important;
+  background: #141923 !important;
+  color: #f1f5f9 !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid #273142 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5) !important;
   padding: 0 !important;
 }
 
 .leaflet-popup-content {
-  margin: 10px 14px !important;
+  margin: 12px 14px !important;
   line-height: 1.4 !important;
 }
 
 .leaflet-popup-tip {
-  background: #ffffff !important;
+  background: #141923 !important;
+  border: 1px solid #273142 !important;
+}
+
+/* Custom Instrument Gauge pulse */
+@keyframes cockpit-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+}
+
+.cockpit-recording {
+  animation: cockpit-pulse 2s infinite ease-in-out;
 }

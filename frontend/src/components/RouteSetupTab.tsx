@@ -17,7 +17,8 @@ import {
   Sparkles,
   ExternalLink,
   AlertTriangle,
-  Search
+  Search,
+  Compass
 } from 'lucide-react';
 import type { RideDetails } from '../types';
 import { previewRoute, updateRideRoute, fetchLocationSuggestions, fetchGeocodeCandidates } from '../api';
@@ -168,15 +169,15 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     // Helper: Create subtle numbered circular checkpoint marker
     const createCheckpointIcon = (type: string, order: number, isSelected: boolean) => {
       let bg = '#334155';
-      if (type === 'fuel') bg = '#0284c7'; // Sky Blue
+      if (type === 'fuel') bg = '#f59e0b'; // Amber
       else if (type === 'food') bg = '#10b981'; // Emerald
-      else if (type === 'restroom') bg = '#6366f1'; // Indigo
-      else if (type === 'repair') bg = '#f97316'; // Amber/Orange
-      else if (type === 'checkpoint') bg = '#64748b'; // Slate
+      else if (type === 'restroom') bg = '#0284c7'; // Sky
+      else if (type === 'repair') bg = '#e11d48'; // Rose
+      else if (type === 'checkpoint') bg = '#6366f1'; // Indigo
 
-      const border = isSelected ? '3px solid #38bdf8' : '2px solid #ffffff';
+      const border = isSelected ? '3px solid #f59e0b' : '2px solid #ffffff';
       const scale = isSelected ? 'transform: scale(1.3); z-index: 9999;' : '';
-      const shadow = isSelected ? 'box-shadow: 0 0 14px rgba(56, 189, 248, 0.9);' : 'box-shadow: 0 2px 4px rgba(0,0,0,0.4);';
+      const shadow = isSelected ? 'box-shadow: 0 0 14px rgba(245, 158, 11, 0.9);' : 'box-shadow: 0 2px 4px rgba(0,0,0,0.4);';
 
       return L.divIcon({
         className: 'subtle-checkpoint-marker',
@@ -193,9 +194,9 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
     // 1. Draw highway polyline
     const polyline = L.polyline(activePolyline, {
-      color: '#0284c7',
+      color: '#f59e0b',
       weight: 5,
-      opacity: 0.92,
+      opacity: 0.95,
       lineJoin: 'round',
     });
     layerGroup.addLayer(polyline);
@@ -204,12 +205,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     const startCoord = activePolyline[0];
     const startIcon = createLocationPin('A', true, '#10b981');
     const startPopup = `
-      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 170px;">
-        <div style="display: inline-block; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #f1f5f9; padding: 4px; min-width: 170px;">
+        <div style="display: inline-block; background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
           Start Location (Point A)
         </div>
-        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a;">${startLocation}</h4>
-        <p style="margin: 0; color: #475569; font-size: 11px;">Departure: <strong>${startTime}</strong></p>
+        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #ffffff;">${startLocation}</h4>
+        <p style="margin: 0; color: #94a3b8; font-size: 11px;">Departure: <strong>${startTime}</strong></p>
       </div>
     `;
     const startMarker = L.marker([startCoord[0], startCoord[1]], { icon: startIcon, zIndexOffset: 1000 })
@@ -220,12 +221,12 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     const endCoord = activePolyline[activePolyline.length - 1];
     const endIcon = createLocationPin('B', false, '#e11d48');
     const endPopup = `
-      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 170px;">
-        <div style="display: inline-block; background: #fff1f2; color: #e11d48; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+      <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #f1f5f9; padding: 4px; min-width: 170px;">
+        <div style="display: inline-block; background: rgba(225, 29, 72, 0.2); color: #fb7185; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
           Destination Goal (Point B)
         </div>
-        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a;">${destination}</h4>
-        <p style="margin: 0; color: #475569; font-size: 11px;">Target Arrival Zone</p>
+        <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #ffffff;">${destination}</h4>
+        <p style="margin: 0; color: #94a3b8; font-size: 11px;">Target Arrival Zone</p>
       </div>
     `;
     const endMarker = L.marker([endCoord[0], endCoord[1]], { icon: endIcon, zIndexOffset: 1000 })
@@ -245,21 +246,21 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
       const amenitiesHtml = amenities.length > 0
         ? `<div style="display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px;">
-            ${amenities.map((a: string) => `<span style="background: #f1f5f9; color: #334155; font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 4px; border: 1px solid #e2e8f0;">${a}</span>`).join('')}
+            ${amenities.map((a: string) => `<span style="background: #1e2533; color: #e2e8f0; font-size: 9px; font-weight: 600; padding: 2px 5px; border-radius: 4px; border: 1px solid #2d3748;">${a}</span>`).join('')}
           </div>`
         : '';
 
       const popup = `
-        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #0f172a; padding: 4px; min-width: 190px; max-width: 240px;">
+        <div style="font-family: system-ui, sans-serif; font-size: 12px; color: #f1f5f9; padding: 4px; min-width: 190px; max-width: 240px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #0284c7; background: #e0f2fe; padding: 1px 5px; border-radius: 4px;">
+            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #f59e0b; background: rgba(245, 158, 11, 0.15); padding: 1px 5px; border-radius: 4px;">
               Stop #${idx + 1}: ${stopType}
             </span>
-            <span style="font-size: 10px; font-weight: 700; color: #0369a1; font-family: monospace;">${eta}</span>
+            <span style="font-size: 10px; font-weight: 700; color: #f59e0b; font-family: monospace;">${eta}</span>
           </div>
-          <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.25;">${name}</h4>
-          <p style="margin: 0; color: #475569; font-size: 11px;">Distance: <strong>${km} km</strong> from start | ${stop.duration_minutes || 15}m stop</p>
-          ${notes ? `<p style="margin-top: 4px; font-size: 11px; color: #64748b; line-height: 1.35; border-top: 1px solid #f1f5f9; padding-top: 4px;">${notes}</p>` : ''}
+          <h4 style="margin: 4px 0 2px 0; font-size: 13px; font-weight: 700; color: #ffffff; line-height: 1.25;">${name}</h4>
+          <p style="margin: 0; color: #94a3b8; font-size: 11px;">Distance: <strong>${km} km</strong> from start | ${stop.duration_minutes || 15}m stop</p>
+          ${notes ? `<p style="margin-top: 4px; font-size: 11px; color: #cbd5e1; line-height: 1.35; border-top: 1px solid #1e2533; padding-top: 4px;">${notes}</p>` : ''}
           ${amenitiesHtml}
         </div>
       `;
@@ -450,53 +451,53 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
     handleCalculateRouteWith(startLocation, loc.name);
   };
 
-  const displayDistance = routeData?.total_distance_km || ride?.total_distance_km || 0;
-  const displayDuration = routeData?.estimated_duration_minutes || ride?.duration_minutes || 0;
-  const displayWeather = routeData?.weather?.overall_verdict || ride?.weather_verdict || 'GO';
-  const displayStops = routeData?.timeline || ride?.stops || [];
-  const routingEngine = routeData?.routing_provider || 'Live Highway Engine';
+  const displayDistance = routeData?.total_distance_km ?? ride?.total_distance_km ?? 224.5;
+  const displayDuration = routeData?.estimated_duration_minutes ?? ride?.duration_minutes ?? 210;
+  const displayWeather = routeData?.weather_verdict ?? ride?.weather_verdict ?? 'GO';
+  const displayStops = routeData?.timeline ?? ride?.stops ?? [];
+  const routingEngine = routeData?.routing_provider ?? 'car routing (demo server)';
 
-  // Filter stops by category
-  const filteredStops = displayStops.filter((stop: any) => {
-    const type = stop.stop_type || stop.type || 'checkpoint';
+  // Filtered stops for the timeline sidebar
+  const filteredStops = displayStops.filter((s: any) => {
     if (timelineFilter === 'all') return true;
-    if (timelineFilter === 'fuel') return type === 'fuel';
-    if (timelineFilter === 'food') return type === 'food';
-    if (timelineFilter === 'restroom') return type === 'restroom';
-    if (timelineFilter === 'repair') return type === 'repair';
-    return true;
+    const type = (s.stop_type || s.type || '').toLowerCase();
+    return type === timelineFilter;
   });
 
   const selectedStop = selectedStopIndex !== null ? displayStops[selectedStopIndex] : null;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-5">
-      {/* Route Setup & Destination Control Panel */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+    <div className="space-y-6 max-w-7xl mx-auto animate-fade-in">
+      {/* Route Inputs Card */}
+      <div className="bg-[#12161f] border border-[#1e2533] rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#1e2533] pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 px-2.5 py-0.5 rounded-full border border-sky-500/20">
-                Route &amp; Destination Setup
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 font-mono">
+                Live Highway Navigation &amp; Corridor Search
               </span>
-              <span className="text-xs text-slate-400">Real-Time Highway Routing &amp; Fuel Safety</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white mt-1">Group Ride Highway Planner</h1>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1 tracking-tight">
+              Route Planner &amp; Stop Inspector
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Change waypoints to recalculate live highway polylines, Overpass OSM fuel/food checkpoints, and safe range limits.
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={onOpenChatModal}
-              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-semibold border border-slate-700/80 flex items-center gap-1.5 transition shadow-sm"
+              className="px-3.5 py-2 bg-[#18202d] hover:bg-[#202b3d] text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm"
             >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Import WhatsApp Chat</span>
+              <FileText className="w-3.5 h-3.5 text-amber-400" />
+              <span>Import Chat</span>
             </button>
             <button
               onClick={onOpenApiSettings}
-              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700/80 flex items-center gap-1.5 transition"
+              className="px-3.5 py-2 bg-[#12161f] hover:bg-[#18202d] text-slate-300 border border-[#232b38] rounded-xl text-xs font-medium flex items-center gap-1.5 transition"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
               <span>API Settings</span>
             </button>
           </div>
@@ -518,10 +519,10 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
         {/* Candidate Picker Modal/Drawer */}
         {candidateTarget && candidatesList.length > 0 && (
-          <div className="bg-slate-950 border border-sky-500/50 rounded-xl p-3 space-y-2">
+          <div className="bg-[#0e1219] border border-amber-500/50 rounded-xl p-3 space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-sky-300">
-                Pick Exact Mapped Location for {candidateTarget === 'start' ? 'Start (A)' : 'Destination (B)'}:
+              <span className="font-bold text-amber-300 font-mono">
+                Select Exact Mapped Location for {candidateTarget === 'start' ? 'Start (A)' : 'Destination (B)'}:
               </span>
               <button onClick={() => setCandidateTarget(null)} className="text-slate-400 hover:text-white text-xs">
                 &times; Close
@@ -533,9 +534,9 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                   key={cidx}
                   type="button"
                   onClick={() => handleSelectCandidate(cand)}
-                  className="w-full text-left p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-xs text-slate-200 border border-slate-800 hover:border-sky-500/50 transition flex items-start gap-2"
+                  className="w-full text-left p-2 rounded-lg bg-[#141923] hover:bg-[#1a212e] text-xs text-slate-200 border border-[#222a38] hover:border-amber-500/50 transition flex items-start gap-2"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
+                  <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-semibold text-white block">{cand.name}</span>
                     <span className="text-[10px] text-slate-400 leading-tight block">{cand.display_name}</span>
@@ -561,13 +562,13 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 <button
                   type="button"
                   onClick={() => handleOpenCandidatePicker('start')}
-                  className="text-[10px] text-sky-400 hover:text-sky-300 font-medium flex items-center gap-0.5"
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-medium flex items-center gap-0.5"
                 >
                   <Search className="w-2.5 h-2.5" />
                   <span>{searchingCandidates && candidateTarget === 'start' ? 'Searching...' : 'Candidate Picker'}</span>
                 </button>
                 {showStartDropdown && startSuggestions.length > 0 && (
-                  <span className="text-[10px] text-sky-400 font-mono">{startSuggestions.length} suggestions</span>
+                  <span className="text-[10px] text-amber-400 font-mono">{startSuggestions.length} suggestions</span>
                 )}
               </div>
             </label>
@@ -587,7 +588,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                   else if (startLocation.trim().length >= 1) handleStartChange(startLocation);
                 }}
                 placeholder="Type departure city, hub, or toll..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+                className="w-full bg-[#0b0e14] border border-[#232b3b] rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition text-xs font-mono"
               />
               {startLocation && (
                 <button
@@ -606,15 +607,15 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
             {/* Start Location Autocomplete Dropdown */}
             {showStartDropdown && startSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-800/80">
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#12161f] border border-[#242e40] rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-[#1e2533]">
                 {startSuggestions.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => selectStartLocation(item)}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/90 transition flex flex-col gap-0.5 group"
+                    className="w-full text-left px-3.5 py-2 hover:bg-[#1a212e] transition flex flex-col gap-0.5 group"
                   >
-                    <div className="font-semibold text-slate-100 group-hover:text-sky-300 flex items-center gap-1.5 text-xs">
+                    <div className="font-semibold text-slate-100 group-hover:text-amber-400 flex items-center gap-1.5 text-xs">
                       <Navigation className="w-3 h-3 text-emerald-400 shrink-0" />
                       <span>{item.name}</span>
                     </div>
@@ -634,19 +635,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-[10px]">
                   B
                 </span>
-                <span>Ride End Goal (Destination)</span>
+                <span>Ride Destination (Point B)</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleOpenCandidatePicker('dest')}
-                  className="text-[10px] text-sky-400 hover:text-sky-300 font-medium flex items-center gap-0.5"
+                  className="text-[10px] text-amber-400 hover:text-amber-300 font-medium flex items-center gap-0.5"
                 >
                   <Search className="w-2.5 h-2.5" />
                   <span>{searchingCandidates && candidateTarget === 'dest' ? 'Searching...' : 'Candidate Picker'}</span>
                 </button>
                 {showDestDropdown && destSuggestions.length > 0 && (
-                  <span className="text-[10px] text-sky-400 font-mono">{destSuggestions.length} suggestions</span>
+                  <span className="text-[10px] text-amber-400 font-mono">{destSuggestions.length} suggestions</span>
                 )}
               </div>
             </label>
@@ -665,8 +666,8 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                   if (destSuggestions.length > 0) setShowDestDropdown(true);
                   else if (destination.trim().length >= 1) handleDestChange(destination);
                 }}
-                placeholder="Type destination, hill station, or city..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+                placeholder="Type destination, hill station, or pass..."
+                className="w-full bg-[#0b0e14] border border-[#232b3b] rounded-xl px-3.5 py-2.5 text-slate-100 font-medium focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition text-xs font-mono"
               />
               {destination && (
                 <button
@@ -685,15 +686,15 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
             {/* Destination Autocomplete Dropdown */}
             {showDestDropdown && destSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-700/90 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-slate-800/80">
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-[#12161f] border border-[#242e40] rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto divide-y divide-[#1e2533]">
                 {destSuggestions.map((item, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => selectDestLocation(item)}
-                    className="w-full text-left px-3.5 py-2 hover:bg-slate-800/90 transition flex flex-col gap-0.5 group"
+                    className="w-full text-left px-3.5 py-2 hover:bg-[#1a212e] transition flex flex-col gap-0.5 group"
                   >
-                    <div className="font-semibold text-slate-100 group-hover:text-sky-300 flex items-center gap-1.5 text-xs">
+                    <div className="font-semibold text-slate-100 group-hover:text-amber-400 flex items-center gap-1.5 text-xs">
                       <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
                       <span>{item.name}</span>
                     </div>
@@ -706,7 +707,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             )}
           </div>
 
-          {/* Date & Time */}
+          {/* Ride Date and Start Time */}
           <div className="md:col-span-2 space-y-1.5">
             <label className="text-slate-300 font-medium flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
@@ -716,7 +717,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               type="date"
               value={rideDate}
               onChange={(e) => setRideDate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+              className="w-full bg-[#0b0e14] border border-[#232b3b] rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500 transition text-xs font-mono"
             />
           </div>
 
@@ -730,7 +731,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               placeholder="05:30 am"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition text-xs"
+              className="w-full bg-[#0b0e14] border border-[#232b3b] rounded-xl px-3 py-2.5 text-slate-100 focus:outline-none focus:border-amber-500 transition text-xs font-mono"
             />
           </div>
         </div>
@@ -738,11 +739,11 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         {/* Route Safety Warnings Banner */}
         {routeData?.warnings && routeData.warnings.length > 0 && (
           <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 text-xs text-amber-200 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-amber-400">
+            <div className="flex items-center gap-1.5 font-bold text-amber-400 font-mono">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
               <span>Route Safety &amp; Coverage Warnings</span>
             </div>
-            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-300">
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-300 font-mono">
               {routeData.warnings.map((w: string, widx: number) => (
                 <li key={widx}>{w}</li>
               ))}
@@ -751,17 +752,17 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         )}
 
         {/* Actions Row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#1e2533]">
           <div className="text-xs text-slate-400 flex items-center gap-2">
             {calculating ? (
-              <span className="text-sky-400 font-medium flex items-center gap-1.5">
-                <RotateCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              <span className="text-amber-400 font-medium flex items-center gap-1.5 font-mono">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
                 <span>Calculating real-time highway route...</span>
               </span>
             ) : statusMessage ? (
-              <span className="text-slate-300 font-medium">{statusMessage}</span>
+              <span className="text-slate-300 font-medium font-mono text-[11px]">{statusMessage}</span>
             ) : (
-              <span>Routing Engine: <strong className="text-sky-400">{routingEngine}</strong></span>
+              <span className="font-mono text-[11px]">Routing Provider: <strong className="text-amber-400">{routingEngine}</strong></span>
             )}
           </div>
 
@@ -769,9 +770,9 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
             <button
               onClick={() => handleCalculateRouteWith(startLocation, destination)}
               disabled={calculating}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition"
+              className="px-4 py-2 bg-[#18202d] hover:bg-[#222c3d] text-slate-200 border border-[#253247] font-semibold text-xs rounded-xl flex items-center gap-1.5 transition"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${calculating ? 'animate-spin' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${calculating ? 'animate-spin text-amber-400' : ''}`} />
               <span>{calculating ? 'Updating Map...' : 'Recalculate Route'}</span>
             </button>
 
@@ -779,14 +780,14 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
               <button
                 onClick={handleUpdateActiveRide}
                 disabled={updatingRide || calculating}
-                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md shadow-amber-500/20"
               >
                 <span>{updatingRide ? 'Saving Plan...' : 'Apply to Active Ride'}</span>
               </button>
             ) : (
               <button
                 onClick={onOpenChatModal}
-                className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-md shadow-amber-500/20"
               >
                 <span>Import Group Chat</span>
               </button>
@@ -797,39 +798,39 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
 
       {/* Live Route Metrics Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-400 block font-medium">Total Distance</span>
-          <span className="text-lg font-bold text-sky-400 font-mono mt-0.5 block">{displayDistance} km</span>
+        <div className="bg-[#12161f] border border-[#1e2533] p-3.5 rounded-xl shadow-sm">
+          <span className="text-[10px] uppercase font-mono text-slate-400 block font-medium">Total Distance</span>
+          <span className="text-xl font-extrabold text-amber-400 font-mono mt-0.5 block">{displayDistance} km</span>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-400 block font-medium">Estimated Riding Time</span>
-          <span className="text-lg font-bold text-white font-mono mt-0.5 block">
+        <div className="bg-[#12161f] border border-[#1e2533] p-3.5 rounded-xl shadow-sm">
+          <span className="text-[10px] uppercase font-mono text-slate-400 block font-medium">Estimated Riding Time</span>
+          <span className="text-xl font-extrabold text-white font-mono mt-0.5 block">
             ~{Math.floor(displayDuration / 60)}h {displayDuration % 60}m
           </span>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-400 block font-medium">Route Weather Verdict</span>
+        <div className="bg-[#12161f] border border-[#1e2533] p-3.5 rounded-xl shadow-sm">
+          <span className="text-[10px] uppercase font-mono text-slate-400 block font-medium">Weather Status</span>
           <span className={`text-base font-bold font-mono mt-0.5 block ${
             displayWeather === 'GO' ? 'text-emerald-400' : 'text-amber-400'
           }`}>
-            {displayWeather} Status
+            {displayWeather} Verdict
           </span>
         </div>
-        <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl shadow-sm">
-          <span className="text-[11px] text-slate-400 block font-medium">Checkpoints &amp; Stops</span>
-          <span className="text-lg font-bold text-slate-200 font-mono mt-0.5 block">{displayStops.length} Along Route</span>
+        <div className="bg-[#12161f] border border-[#1e2533] p-3.5 rounded-xl shadow-sm">
+          <span className="text-[10px] uppercase font-mono text-slate-400 block font-medium">Highway Stops</span>
+          <span className="text-xl font-extrabold text-slate-200 font-mono mt-0.5 block">{displayStops.length} Checkpoints</span>
         </div>
       </div>
 
       {/* Map and Interactive Timeline Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Leaflet Map Column */}
-        <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[560px] relative">
+        <div className="lg:col-span-7 bg-[#12161f] border border-[#1e2533] rounded-2xl p-4 shadow-xl flex flex-col h-[600px] relative">
           <div className="flex items-center justify-between mb-2.5 px-1">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">Live Highway Map</span>
-              <span className="text-[11px] text-slate-500">|</span>
-              <div className="flex items-center gap-3 text-[11px] text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 font-mono">Live Highway Map</span>
+              <span className="text-[11px] text-slate-600">|</span>
+              <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
                 <span className="flex items-center gap-1">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                   Start (A)
@@ -840,19 +841,19 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 </span>
               </div>
             </div>
-            <span className="text-[11px] text-sky-400 font-mono hidden sm:inline">
+            <span className="text-[11px] text-amber-400 font-mono hidden sm:inline truncate max-w-[240px]">
               {selectedStop ? `Inspecting: ${selectedStop.name}` : destination}
             </span>
           </div>
 
           {/* Interactive Map */}
-          <div className="flex-1 w-full rounded-xl overflow-hidden shadow-inner border border-slate-800 relative">
+          <div className="flex-1 w-full rounded-xl overflow-hidden shadow-inner border border-[#1e2533] relative">
             <div ref={mapContainerRef} className="w-full h-full" />
 
             {/* Live calculation overlay on the map */}
             {calculating && (
-              <div className="absolute top-3 right-3 z-[1000] bg-slate-900/90 border border-sky-500/40 text-sky-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xl backdrop-blur-sm">
-                <RotateCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              <div className="absolute top-3 right-3 z-[1000] bg-[#0e1219]/90 border border-amber-500/40 text-amber-300 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xl backdrop-blur-sm font-mono">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
                 <span>Updating live route...</span>
               </div>
             )}
@@ -860,20 +861,20 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
         </div>
 
         {/* Timeline Column with Click-to-Inspect Stops */}
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[560px]">
-          <div className="flex flex-col gap-2 mb-3 border-b border-slate-800 pb-2.5">
+        <div className="lg:col-span-5 bg-[#12161f] border border-[#1e2533] rounded-2xl p-4 shadow-xl flex flex-col h-[600px]">
+          <div className="flex flex-col gap-2 mb-3 border-b border-[#1e2533] pb-2.5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-white font-bold text-xs uppercase tracking-wider">Timeline Checkpoints</h3>
+                <h3 className="text-white font-bold text-xs uppercase tracking-wider font-mono">Timeline Checkpoints</h3>
                 <p className="text-[11px] text-slate-400">Click any stop to locate and inspect on map</p>
               </div>
-              <span className="text-[11px] font-semibold text-slate-300 bg-slate-800 px-2.5 py-0.5 rounded-full border border-slate-700">
+              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-md border border-amber-500/20 font-mono">
                 {filteredStops.length} Stops
               </span>
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1 overflow-x-auto pt-1">
+            <div className="flex items-center gap-1.5 overflow-x-auto pt-1">
               {[
                 { id: 'all', label: 'All' },
                 { id: 'fuel', label: 'Fuel' },
@@ -884,10 +885,10 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                 <button
                   key={f.id}
                   onClick={() => setTimelineFilter(f.id as any)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition whitespace-nowrap ${
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold border transition whitespace-nowrap ${
                     timelineFilter === f.id
-                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                      : 'bg-[#0e1219] text-slate-400 border-[#1e2533] hover:text-slate-200'
                   }`}
                 >
                   {f.label}
@@ -911,48 +912,48 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                   onClick={() => handleInspectStop(stop, originalIndex !== -1 ? originalIndex : idx)}
                   className={`p-3 rounded-xl text-xs space-y-1.5 transition cursor-pointer border ${
                     isSelected
-                      ? 'bg-sky-950/40 border-sky-500 ring-1 ring-sky-500/40 shadow-lg'
-                      : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/30'
+                      ? 'bg-[#18202d] border-amber-500 ring-1 ring-amber-500/40 shadow-lg'
+                      : 'bg-[#0e1219] border-[#1e2533] hover:border-[#2a374c] hover:bg-[#141a24]'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[10px] uppercase font-mono font-bold tracking-wider px-2 py-0.5 rounded border ${
                         stopType === 'fuel'
-                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/30'
+                          ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                           : stopType === 'food'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                           : stopType === 'restroom'
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30'
+                          ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
                           : stopType === 'repair'
-                          ? 'bg-orange-500/10 text-orange-400 border-orange-500/30'
+                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                           : 'bg-slate-800 text-slate-300 border-slate-700'
                       }`}>
                         #{stop.order || idx + 1} {stopType}
                       </span>
                       {stop.source === 'osm' && (
-                        <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded">
                           Live OSM
                         </span>
                       )}
                       {stop.source === 'cached' && (
-                        <span className="text-[9px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded">
+                        <span className="text-[9px] font-mono font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded">
                           Cached OSM
                         </span>
                       )}
                       {stop.is_optional && (
-                        <span className="text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">
-                          Optional
+                        <span className="text-[9px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                          Optional Top-up
                         </span>
                       )}
                       {isSelected && (
-                        <span className="text-[10px] font-bold text-sky-400 flex items-center gap-0.5">
+                        <span className="text-[10px] font-mono font-bold text-amber-400 flex items-center gap-0.5">
                           <Crosshair className="w-3 h-3" />
                           <span>FOCUSED</span>
                         </span>
                       )}
                     </div>
-                    <span className="font-mono text-sky-400 font-bold">{stop.eta || '08:00 AM'}</span>
+                    <span className="font-mono text-amber-400 font-bold">{stop.eta || '08:00 AM'}</span>
                   </div>
 
                   <div className="flex items-baseline justify-between pt-0.5">
@@ -961,7 +962,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                   </div>
 
                   {stop.brand && (
-                    <div className="text-[10px] text-sky-400 font-medium">Brand: {stop.brand}</div>
+                    <div className="text-[10px] text-amber-400 font-mono">Brand: {stop.brand}</div>
                   )}
 
                   {stop.notes && (
@@ -974,7 +975,7 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                       {amenities.map((a: string, aidx: number) => (
                         <span
                           key={aidx}
-                          className="bg-slate-900 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded border border-slate-800"
+                          className="bg-[#141923] text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded border border-[#222a38]"
                         >
                           {a}
                         </span>
@@ -982,14 +983,14 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
                     </div>
                   )}
 
-                  <div className="text-[10px] text-slate-500 pt-1 flex items-center justify-between border-t border-slate-800/60 mt-1">
+                  <div className="text-[10px] text-slate-500 pt-1 flex items-center justify-between border-t border-[#1e2533] mt-1 font-mono">
                     <span>Offset: {stop.offset_km !== undefined ? `${stop.offset_km} km` : 'on route'}</span>
                     <a
                       href={stop.maps_url || `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-sky-400 hover:text-sky-300 flex items-center gap-0.5 font-semibold"
+                      className="text-amber-400 hover:text-amber-300 flex items-center gap-0.5 font-semibold"
                     >
                       <span>Open in Maps</span>
                       <ExternalLink className="w-2.5 h-2.5" />
@@ -1001,10 +1002,10 @@ export const RouteSetupTab: React.FC<RouteSetupTabProps> = ({
           </div>
 
           {ride && (
-            <div className="pt-3 border-t border-slate-800 mt-2">
+            <div className="pt-3 border-t border-[#1e2533] mt-2">
               <button
                 onClick={() => setActiveTab('approvals')}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-400 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition border border-slate-700/80"
+                className="w-full py-2.5 bg-[#18202d] hover:bg-[#202b3d] text-amber-400 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition border border-[#253247]"
               >
                 <span>View Approvals &amp; Deliverables</span>
                 <ArrowRight className="w-3.5 h-3.5" />
